@@ -1,0 +1,5 @@
+venv/
+study_data/
+__pycache__/
+*.db
+.env
