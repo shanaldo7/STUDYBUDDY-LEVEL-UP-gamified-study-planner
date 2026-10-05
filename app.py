@@ -16,6 +16,11 @@ import streamlit as st
 from pypdf import PdfReader
 
 from anime_rpg import render as render_anime_rpg
+from study_engine import (
+    ensure_tables as ensure_adaptive_tables,
+    render_exam_center,
+    create_revision_from_miss,
+)
 
 try:
     from dotenv import load_dotenv
@@ -1118,6 +1123,18 @@ input:focus, textarea:focus,
 .intel-streak{font:800 2rem Orbitron,sans-serif;color:#fff}.intel-streak span{font-size:.7rem;color:#67e8f9;letter-spacing:1px}
 @media(max-width:950px){.intel-grid{grid-template-columns:repeat(2,1fr)}.intel-radar{grid-template-columns:1fr}}@media(max-width:600px){.intel-grid{grid-template-columns:1fr}}
 
+
+/* ── Exam Command Center ───────────────────────────────────── */
+.exam-hero{position:relative;overflow:hidden;border-radius:28px;padding:30px;margin-bottom:18px;border:1px solid rgba(251,191,36,.24);background:radial-gradient(circle at 85% 15%,rgba(251,191,36,.16),transparent 28%),radial-gradient(circle at 10% 90%,rgba(34,211,238,.11),transparent 30%),linear-gradient(135deg,rgba(12,18,34,.96),rgba(36,20,47,.94));box-shadow:0 28px 80px rgba(0,0,0,.44),inset 0 1px 0 rgba(255,255,255,.07)}
+.exam-hero::after{content:"";position:absolute;right:-90px;top:-130px;width:330px;height:330px;border:1px solid rgba(251,191,36,.16);border-radius:50%;box-shadow:0 0 0 35px rgba(251,191,36,.025),0 0 0 70px rgba(167,139,250,.018);pointer-events:none}
+.exam-kicker{color:#fbbf24;font:800 .62rem Orbitron,sans-serif;letter-spacing:2px}.exam-title{color:#fff;font:800 clamp(1.7rem,3vw,2.7rem) Orbitron,sans-serif;margin:7px 0}.exam-sub{color:#a7b6cc;max-width:800px;font-size:.84rem}
+.exam-empty{padding:35px;text-align:center;border:1px dashed rgba(103,232,249,.25);border-radius:20px;background:rgba(6,14,28,.55);color:#67e8f9;font:800 .72rem Orbitron,sans-serif;letter-spacing:1.2px}.exam-empty span{display:block;color:#71839f;font:500 .75rem Inter,sans-serif;letter-spacing:0;margin-top:8px}
+.exam-topic-row{display:grid;grid-template-columns:210px 1fr 55px;gap:12px;align-items:center;margin:9px 0;padding:10px 12px;border:1px solid rgba(126,177,235,.10);border-radius:13px;background:rgba(7,13,26,.45);transition:transform .2s,border-color .2s}.exam-topic-row:hover{transform:translateX(3px);border-color:rgba(103,232,249,.30)}.exam-topic-name{color:#e7f0ff;font-size:.73rem}.exam-topic-name span{display:block;color:#fbbf24;font:700 .54rem Orbitron,sans-serif;letter-spacing:.7px;margin-top:2px}.exam-topic-track,.mastery-track{height:9px;border-radius:99px;background:#16243b;overflow:hidden}.exam-topic-track>div,.mastery-track>div{height:100%;border-radius:99px;background:linear-gradient(90deg,#f59e0b,#22d3ee,#8b5cf6);box-shadow:0 0 12px rgba(34,211,238,.22)}.exam-topic-score{font:800 .68rem Orbitron,sans-serif;color:#fff;text-align:right}
+.exam-plan-row{display:grid;grid-template-columns:78px 1fr 75px;gap:12px;align-items:center;padding:13px;margin:7px 0;border:1px solid rgba(126,177,235,.12);border-radius:14px;background:linear-gradient(100deg,rgba(18,29,51,.72),rgba(22,14,38,.58))}.exam-plan-row>b{color:#67e8f9;font:800 .61rem Orbitron,sans-serif}.exam-plan-row strong{color:#edf5ff;font-size:.73rem}.exam-plan-row span{display:block;color:#71839f;font-size:.62rem;margin-top:2px}.exam-plan-row em{font-style:normal;color:#fbbf24;font:700 .55rem Orbitron,sans-serif;text-align:right}
+.exam-ai-output{padding:18px;border-radius:17px;border:1px solid rgba(167,139,250,.25);background:linear-gradient(120deg,rgba(50,34,84,.35),rgba(7,17,32,.60));color:#dce8f7;line-height:1.65;box-shadow:0 15px 40px rgba(0,0,0,.25)}
+.mastery-row{display:grid;grid-template-columns:150px 1fr 55px 175px;gap:10px;align-items:center;margin:8px 0;padding:10px 12px;border-radius:13px;background:rgba(7,13,26,.43);border:1px solid rgba(126,177,235,.10)}.mastery-row>b{color:#e8f1ff;font-size:.72rem}.mastery-row>strong{font:800 .67rem Orbitron;color:#fff;text-align:right}.mastery-row>span{color:#71839f;font-size:.59rem}
+@media(max-width:800px){.exam-topic-row{grid-template-columns:1fr}.mastery-row{grid-template-columns:1fr 1fr}.mastery-row .mastery-track{grid-column:1/-1}.exam-plan-row{grid-template-columns:65px 1fr}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -1137,6 +1154,7 @@ def render_module_hud(current_page):
         "🏆 Achievements": ("HUNTER ARCHIVE · MILESTONES","Track unlocks, rewards and progression."),
         "📊 Hunter Report": ("SYSTEM ANALYTICS · PERFORMANCE","Read your study telemetry and progression."),
         "🎯 Study Intelligence": ("ADAPTIVE CORE · PERSONALIZED LEARNING","Turn your activity into a daily plan, weak-topic radar and AI coaching."),
+        "🎓 Exam Command Center": ("EXAM PROTOCOL · TACTICAL PREPARATION","Map your syllabus, measure mastery, identify risk and deploy an adaptive study plan."),
         "🤖 AI System Assistant": ("SYSTEM CORE · AI ASSISTANT","Use the assistant as your tactical study operator."),
         "👥 Shadow Army": ("SHADOW COMMAND · COMPANIONS","Manage your companions and squad progression."),
         "👑 Anime RPG": ("RPG SYSTEM · PROGRESSION","Characters, bosses, rewards and power progression."),
@@ -1252,6 +1270,9 @@ with db() as con:
         weekly_xp INTEGER NOT NULL DEFAULT 0, focus_minutes INTEGER NOT NULL DEFAULT 0,
         last_checkin TEXT, added_at TEXT NOT NULL
     )""")
+
+# Additive adaptive-learning tables: exams, syllabus topics and mastery events.
+ensure_adaptive_tables(db)
 
 RANKS = [(0,"E-RANK"),(150,"D-RANK"),(400,"C-RANK"),(800,"B-RANK"),(1400,"A-RANK"),(2200,"S-RANK"),(3500,"NATIONAL LEVEL")]
 def rank_for(xp):
@@ -1943,6 +1964,7 @@ pages = [
     "🏆 Achievements",
     "📊 Hunter Report",
     "🎯 Study Intelligence",
+    "🎓 Exam Command Center",
     "🤖 AI System Assistant",
     "👥 Shadow Army",
     "👑 Anime RPG",
@@ -2359,6 +2381,10 @@ Return 3 bullets: (1) priority, (2) mistake/risk to avoid, (3) exact next action
         if st.button("⚔️ Test in Dungeon",use_container_width=True):
             st.session_state["nav_page"]="⚔️ Dungeon Battles"; st.rerun()
 
+
+elif page == "🎓 Exam Command Center":
+    render_module_hud(page)
+    render_exam_center(st, db, profile, ask_ollama, has_api_key)
 
 elif page == "🤖 AI System Assistant":
     render_module_hud(page)
@@ -3019,6 +3045,16 @@ elif page == "⚔️ Dungeon Battles":
                             else:
                                 run["combo"] = 0
                                 run["shield"] = max(0,run["shield"]-1)
+                                # Close the learning loop: every dungeon miss becomes a due-now revision card.
+                                with db() as con:
+                                    created = create_revision_from_miss(
+                                        db,
+                                        run["subject"],
+                                        q["q"],
+                                        q["options"][q["answer"]],
+                                        q.get("explain", ""),
+                                    )
+                                run["miss_card_created"] = bool(created)
                             st.session_state["dungeon_run"] = run
                             st.rerun()
                 else:
@@ -3027,6 +3063,8 @@ elif page == "⚔️ Dungeon Battles":
                         st.success(f"⚡ CRITICAL HIT · {boss['name']} staggered! Combo x{run['combo']}")
                     else:
                         st.error(f"🛡 BLOCKED · Correct answer: {result['answer']}")
+                        if result.get("correct") is False and run.get("miss_card_created"):
+                            st.info("🧠 Learning loop activated · this mistake was added to your Revision Lab and is due now.")
                     st.markdown(f"<div class='system-panel'><div class='panel-title'>Battle analysis</div><div class='muted'>{result['explain']}</div></div>", unsafe_allow_html=True)
                     if qidx + 1 < total:
                         if st.button("NEXT TARGET →", type="primary", use_container_width=True):
@@ -3442,6 +3480,9 @@ elif page == "⚙️ Settings":
         if st.button("Reset progress", disabled=not confirm):
             with db() as con:
                 con.execute("DELETE FROM quests")
+                con.execute("DELETE FROM exams")
+                con.execute("DELETE FROM exam_topics")
+                con.execute("DELETE FROM mastery_events")
                 con.execute("UPDATE profile SET xp=0,focus=1,discipline=1,knowledge=1,energy=1,streak=0,last_study=NULL,title='New Awakening' WHERE id=1")
             st.success("Progress reset."); st.rerun()
 
