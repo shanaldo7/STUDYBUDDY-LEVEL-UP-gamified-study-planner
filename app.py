@@ -2430,8 +2430,8 @@ if page == "🏠 Hunter Dashboard":
             st.rerun()
     with d2:
         with db() as _sp_con:
-        _sp_row = _sp_con.execute("SELECT COALESCE(max_level_seen,1)-COALESCE(skill_points_spent,0) AS available FROM hunter_progress WHERE id=1").fetchone()
-    _available_sp = int(_sp_row["available"] if _sp_row else max(0, level-1))
+            _sp_row = _sp_con.execute("SELECT COALESCE(max_level_seen,1)-COALESCE(skill_points_spent,0) AS available FROM hunter_progress WHERE id=1").fetchone()
+        _available_sp = int(_sp_row["available"] if _sp_row else max(0, level-1))
     st.markdown(f"<div class='system-next'><span class='muted'>SKILL POINTS</span><b>{max(0,_available_sp)}</b><div class='muted'>Open Skill Tree</div></div>", unsafe_allow_html=True)
 
     st.markdown("### ◈ Weekly XP")
