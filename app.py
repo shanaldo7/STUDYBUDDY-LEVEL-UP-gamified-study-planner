@@ -2839,6 +2839,10 @@ elif page == "🧬 Character & Power":
         with db() as con: con.execute("UPDATE profile SET title=? WHERE id=1",(available[-1],))
         st.success(f"Title equipped: {available[-1]}"); st.rerun()
 
+# ---------- Anime RPG ----------
+elif page == "👑 Anime RPG":
+    render_anime_rpg(DB_PATH, profile, award_xp, ask_ollama)
+
 # ---------- Settings ----------
 elif page == "⚙️ Settings":
     st.markdown(
@@ -2903,4 +2907,3 @@ elif page == "⚙️ Settings":
 
 st.sidebar.divider()
 st.sidebar.caption("StudyBuddy Level Up · Local-first study tracker")
-\n\n# ---------- Anime RPG ----------\nelif page == "👑 Anime RPG":\n    render_anime_rpg(DB_PATH, profile, award_xp, ask_ollama)\n
