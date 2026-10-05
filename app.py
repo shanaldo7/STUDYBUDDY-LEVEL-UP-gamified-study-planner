@@ -1417,10 +1417,16 @@ def unlocked_shadows(xp, battles=None):
 def get_profile():
     with db() as con: return dict(con.execute("SELECT * FROM profile WHERE id=1").fetchone())
 
-def award_xp(reward, minutes, source="quest", note="Study reward"):
+def award_xp(reward, minutes, source="quest", note="Study reward", completion_id=None):
+    """Award XP once, with skill multipliers and optional idempotency receipt."""
+    reward = int(round(max(0, int(reward)) * xp_multiplier(db)))
+    if reward <= 0:
+        return 0
     today = date.today().isoformat()
-    reward = max(0, int(reward))
     with db() as con:
+        if completion_id:
+            if con.execute("SELECT 1 FROM xp_log WHERE note LIKE ? LIMIT 1", (f"%[{completion_id}]%",)).fetchone():
+                return 0
         p = con.execute("SELECT * FROM profile WHERE id=1").fetchone()
         streak = p["streak"]
         last = p["last_study"]
@@ -1434,13 +1440,13 @@ def award_xp(reward, minutes, source="quest", note="Study reward"):
             discipline=MIN(discipline+1,99), knowledge=MIN(knowledge+?,99),
             energy=MIN(energy+1,99), streak=?, last_study=? WHERE id=1""",
             (reward, max(1, int(minutes) // 30), streak, today))
+        tagged_note = f"{note} [{completion_id}]" if completion_id else note
         con.execute("INSERT INTO xp_log(amount,source,note,happened_at) VALUES(?,?,?,?)",
-                    (reward, source, note, datetime.now().isoformat(timespec="seconds")))
+                    (reward, source, tagged_note, datetime.now().isoformat(timespec="seconds")))
         new_level = level_for(p["xp"] + reward)
     if new_level > old_level:
         st.session_state["level_up_event"] = {"old": old_level, "new": new_level}
     return reward
-
 
 def complete_quest(qid):
     q = None
