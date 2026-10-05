@@ -1936,6 +1936,52 @@ def save_dungeon_run(subject, difficulty, questions, correct, xp, perfect):
     evaluate_achievements()
 
 
+def render_shadow_unlock_ceremony():
+    """Display the cinematic Shadow Army unlock animation after a dungeon victory."""
+    event = st.session_state.get("shadow_unlock_event")
+    if not event:
+        return
+
+    shadow = event.get("shadow")
+    if not shadow:
+        st.session_state.pop("shadow_unlock_event", None)
+        return
+
+    shadow_name = shadow.get("name", "Unknown Shadow")
+    shadow_title = shadow.get("title", "Shadow Soldier")
+    shadow_emoji = shadow.get("emoji", "👤")
+    shadow_ability = shadow.get("ability", "Unknown ability")
+
+    st.markdown(
+        f"""
+        <div class="sb-unlock">
+            <div class="sb-scan-line"></div>
+            <div style="padding:42px 30px;text-align:center;position:relative;overflow:hidden;">
+                <div class="sb-pulse-ring" style="width:180px;height:180px;position:absolute;left:50%;top:35px;transform:translateX(-50%);pointer-events:none;"></div>
+                <div class="sb-unlock-seal" style="width:110px;height:110px;margin:0 auto 22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:58px;background:radial-gradient(circle,rgba(103,232,249,.18),rgba(8,13,28,.9));border:1px solid rgba(103,232,249,.35);box-shadow:0 0 35px rgba(103,232,249,.18),inset 0 0 25px rgba(167,139,250,.10);">
+                    {shadow_emoji}
+                </div>
+                <div style="font-size:13px;letter-spacing:4px;color:#67e8f9;font-weight:800;margin-bottom:10px;">SHADOW EXTRACTION COMPLETE</div>
+                <div style="font-size:38px;font-weight:900;letter-spacing:1px;margin-bottom:5px;">{shadow_name}</div>
+                <div style="font-size:16px;color:#a78bfa;font-weight:700;margin-bottom:20px;">{shadow_title}</div>
+                <div style="display:inline-block;padding:9px 18px;border-radius:999px;border:1px solid rgba(103,232,249,.25);background:rgba(103,232,249,.06);color:#dffcff;font-weight:700;margin-bottom:16px;">⚔️ SHADOW AWAKENED</div>
+                <div style="max-width:520px;margin:0 auto;padding:14px 18px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);">
+                    <div style="color:#67e8f9;font-size:12px;letter-spacing:2px;font-weight:800;margin-bottom:5px;">ABILITY</div>
+                    <div style="font-size:17px;font-weight:700;">{shadow_ability}</div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div data-sb-motion="shadow-unlock"></div>', unsafe_allow_html=True)
+
+    if st.button("⚔️ Continue", key="shadow_unlock_continue"):
+        st.session_state.pop("shadow_unlock_event", None)
+        st.rerun()
+
+
 def finish_dungeon():
     run = st.session_state.get("dungeon_run")
     if not run or run.get("finished"):
