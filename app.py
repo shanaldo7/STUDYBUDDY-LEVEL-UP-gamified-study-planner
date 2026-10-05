@@ -2038,11 +2038,17 @@ def generate_quiz_questions(subject, count, difficulty):
     return bank[:min(count, len(bank))], "Practice Bank"
 
 
-def save_dungeon_run(subject, difficulty, questions, correct, xp, perfect, boss_rank=""):
-    with db() as con:
-        con.execute("INSERT INTO dungeon_runs(subject,difficulty,questions,correct,xp_earned,perfect,played_at,boss_rank) VALUES(?,?,?,?,?,?,?,?)",
-                    (subject,difficulty,questions,correct,xp,int(perfect),_now(),boss_rank))
+def save_dungeon_run(subject, difficulty, questions, correct, xp, perfect, boss_rank="", completion_id=None):
+    completion_id = completion_id or make_completion_id("dungeon")
+    try:
+        with db() as con:
+            con.execute("INSERT INTO dungeon_runs(subject,difficulty,questions,correct,xp_earned,perfect,played_at,boss_rank,completion_id) VALUES(?,?,?,?,?,?,?,?,?)",
+                        (subject,difficulty,questions,correct,xp,int(perfect),_now(),boss_rank,completion_id))
+    except sqlite3.IntegrityError:
+        # A reconnect/retry can replay the same dungeon completion; do not duplicate it.
+        return False
     evaluate_achievements()
+    return True
 
 
 def render_shadow_unlock_ceremony():
