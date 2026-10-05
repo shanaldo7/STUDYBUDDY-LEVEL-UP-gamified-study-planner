@@ -64,6 +64,27 @@ SKILLS = [
 ]
 
 
+
+
+HUNTER_SYSTEM_CSS = """
+<style>
+.hunter-skill-hero{position:relative;overflow:hidden;padding:22px 24px;margin:0 0 18px;border:1px solid rgba(103,232,249,.22);border-radius:20px;background:radial-gradient(circle at 90% 20%,rgba(167,139,250,.16),transparent 35%),linear-gradient(145deg,rgba(7,15,29,.94),rgba(19,12,37,.94));box-shadow:0 18px 50px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.05)}
+.hunter-skill-kicker{color:#67e8f9;font:800 .64rem Orbitron,sans-serif;letter-spacing:2px}
+.hunter-skill-title{color:#f5fbff;font:800 clamp(1.35rem,3vw,2rem) Orbitron,sans-serif;margin-top:5px}
+.hunter-skill-sub{color:#8fa3bf;font-size:.84rem;margin-top:6px}
+.skill-node{min-height:180px;padding:17px;border-radius:16px;border:1px solid rgba(126,177,235,.16);background:linear-gradient(150deg,rgba(17,29,50,.78),rgba(8,13,25,.82));transition:transform .2s,border-color .2s,box-shadow .2s;margin-bottom:10px}
+.skill-node:hover{transform:translateY(-4px);border-color:rgba(103,232,249,.35);box-shadow:0 14px 32px rgba(0,0,0,.3)}
+.skill-node.unlocked{border-color:rgba(74,222,128,.32);box-shadow:inset 0 0 22px rgba(74,222,128,.035)}
+.skill-node.ready{border-color:rgba(103,232,249,.30)}
+.skill-node.locked{opacity:.58}
+.skill-node-icon{font-size:1.6rem;color:#67e8f9;text-shadow:0 0 14px rgba(103,232,249,.35)}
+.skill-node-name{font:800 1rem Orbitron,sans-serif;color:#f4f8ff;margin-top:8px}
+.skill-node-copy{font-size:.74rem;color:#8298b3;line-height:1.5;margin-top:7px;min-height:48px}
+.skill-node-meta{font-size:.65rem;color:#67e8f9;letter-spacing:1px;font-weight:800;margin-top:10px}
+@media(prefers-reduced-motion:reduce){.skill-node{transition:none}.skill-node:hover{transform:none}}
+</style>
+"""
+
 def ensure_tables(db_fn):
     with db_fn() as con:
         con.execute(
@@ -160,6 +181,7 @@ def revision_interval_multiplier(db_fn):
 
 
 def render_skill_tree(db_fn, profile, now_text):
+    st.markdown(HUNTER_SYSTEM_CSS, unsafe_allow_html=True)
     state = skill_state(db_fn, int(profile["xp"]) // 100 + 1, now_text)
     st.markdown(
         """<div class="hunter-skill-hero">
