@@ -3214,7 +3214,10 @@ elif page == "⚔️ Dungeon Battles":
                         unsafe_allow_html=True,
                     )
                 else:
-                    st.warning("The official boss artwork could not be loaded.")
+                    st.markdown(
+                        f"<div class='dungeon-battle-shell'><div class='dungeon-art-frame'>{boss_visual(boss_id)}</div></div>",
+                        unsafe_allow_html=True,
+                    )
             with right:
                 st.markdown("<div class='dungeon-hud'>", unsafe_allow_html=True)
                 st.markdown(f"<div class='focus-badge'>{boss['rank']} · {boss['element']} CLASS</div>", unsafe_allow_html=True)
