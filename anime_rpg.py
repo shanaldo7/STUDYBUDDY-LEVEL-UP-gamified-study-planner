@@ -22,6 +22,14 @@ CHARACTERS = [
      "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/beru.jpg"},
     {"id":"kaisel","name":"Kaisel","title":"Wyvern","rarity":"Legendary","unlock":6,"power":900,
      "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/kaisel.jpg"},
+    {"id":"chae","name":"Cha Hae-In","title":"Dancer of the Sword","rarity":"Mythic","unlock":7,"power":980,
+     "image":""},
+    {"id":"thomas","name":"Thomas Andre","title":"National Level Hunter","rarity":"Mythic","unlock":10,"power":1200,
+     "image":""},
+    {"id":"liu","name":"Liu Zhigang","title":"Chinese National-Level Hunter","rarity":"Mythic","unlock":12,"power":1180,
+     "image":""},
+    {"id":"ashborn","name":"Ashborn","title":"King of the Dead","rarity":"Transcendent","unlock":15,"power":1500,
+     "image":""},
 ]
 
 BOSSES = [
@@ -127,6 +135,40 @@ def render(path,profile,award_xp,ask_ai_fn=None):
     current=next(b for b in BOSSES if b["id"]==s["active_boss"])
     bs=boss_state(path,current["id"])
     st.markdown("""<style>
+    .system-status{
+      position:relative;overflow:hidden;padding:18px 20px;margin:0 0 18px;
+      border:1px solid rgba(180,225,255,.28);border-radius:18px;
+      background:
+        radial-gradient(circle at 50% -20%,rgba(94,234,212,.12),transparent 55%),
+        linear-gradient(145deg,rgba(7,15,29,.94),rgba(14,21,39,.92));
+      box-shadow:0 0 35px rgba(40,150,255,.08),inset 0 0 30px rgba(103,232,249,.035);
+    }
+    .system-status:after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(100deg,transparent 35%,rgba(103,232,249,.08) 50%,transparent 65%);
+      animation:systemSweep 5s linear infinite;
+    }
+    @keyframes systemSweep{from{transform:translateX(-80%)}to{transform:translateX(80%)}}
+    .status-label{text-align:center;color:#cfeeff;letter-spacing:4px;font:700 .8rem Orbitron,sans-serif;border:1px solid rgba(180,225,255,.25);padding:6px 16px;margin:0 auto 12px;width:max-content}
+    .status-core{display:flex;align-items:center;justify-content:center;gap:28px;flex-wrap:wrap}
+    .status-level{font:900 3rem Orbitron,sans-serif;color:#e7f9ff;text-shadow:0 0 18px rgba(103,232,249,.65);line-height:1}
+    .status-small{color:#91a8c3;font-size:.7rem;letter-spacing:1px}
+    .status-meta b{color:#e7f2ff}.status-meta span{color:#91a8c3}
+    .status-bars{display:grid;grid-template-columns:repeat(3,minmax(130px,1fr));gap:8px;margin:15px auto 10px;max-width:820px}
+    .status-bar{border:1px solid rgba(180,225,255,.18);padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.025)}
+    .status-bar-head{display:flex;justify-content:space-between;font-size:.68rem;color:#dcecff;margin-bottom:4px}
+    .status-track{height:6px;border-radius:99px;background:#162132;overflow:hidden}.status-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#67e8f9,#3b82f6);box-shadow:0 0 9px rgba(103,232,249,.55)}
+    .status-fill.mp{background:linear-gradient(90deg,#a78bfa,#6366f1)}.status-fill.fatigue{background:linear-gradient(90deg,#fbbf24,#ef4444)}
+    .status-stats{display:grid;grid-template-columns:repeat(6,minmax(70px,1fr));gap:7px;max-width:820px;margin:auto}
+    .stat-box{border:1px solid rgba(180,225,255,.15);padding:8px;border-radius:8px;text-align:center;background:rgba(255,255,255,.018)}
+    .stat-box b{display:block;color:#ecfaff;font:800 1.05rem Orbitron,sans-serif}.stat-box span{font-size:.62rem;color:#8298b3;letter-spacing:1px}
+    .character-card{transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;transform-style:preserve-3d}
+    .character-card:hover{transform:perspective(800px) rotateX(2deg) rotateY(-2deg) translateY(-5px);box-shadow:0 18px 35px rgba(0,0,0,.3),0 0 24px rgba(103,232,249,.08)}
+    .system-voice{border:1px solid rgba(103,232,249,.28);background:linear-gradient(90deg,rgba(103,232,249,.07),rgba(167,139,250,.07));padding:10px 14px;border-radius:12px;color:#dffaff;margin:10px 0}
+    @media(max-width:700px){.status-bars,.status-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.status-level{font-size:2.2rem}}
+    @media(prefers-reduced-motion:reduce){.system-status:after{animation:none}.character-card{transition:none}.character-card:hover{transform:none}}
+    """,unsafe_allow_html=True)
+
     .rpg-hero{padding:24px;border-radius:22px;border:1px solid rgba(94,234,212,.28);
     background:linear-gradient(115deg,rgba(10,31,54,.9),rgba(36,18,65,.88));margin-bottom:18px}
     .rpg-kicker{color:#5eead4;font:700 .7rem Orbitron,sans-serif;letter-spacing:2px;text-transform:uppercase}
@@ -140,6 +182,55 @@ def render(path,profile,award_xp,ask_ai_fn=None):
     .rpg-hp>div{height:100%;background:linear-gradient(90deg,#ef4444,#f97316);transition:width .5s ease}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
     </style>""",unsafe_allow_html=True)
+    # Status panel inspired by the supplied reference image, driven by real StudyBuddy telemetry.
+    total_xp=int(profile["xp"]); streak=int(profile["streak"])
+    level=max(1,total_xp//100+1); progress=total_xp%100
+    hp_max=1000+level*60; hp=min(hp_max,700+level*45+streak*18)
+    mp_max=350+level*15; mp=min(mp_max,150+level*9+streak*4)
+    fatigue=min(100,max(0,20+streak*2))
+    base=10+level*2
+    stats={"STR":base+streak*2,"VIT":base+level,"AGI":base+streak,"INT":base+level*2,"PER":base+min(30,progress//4)}
+    available=max(0,level//5)
+    st.markdown(f"""
+    <div class="system-status">
+      <div class="status-label">STATUS</div>
+      <div class="status-core">
+        <div><div class="status-level">{level}</div><div class="status-small">LEVEL</div></div>
+        <div class="status-meta"><span>JOB:</span> <b>HUNTER</b><br><span>TITLE:</span> <b>{html.escape(chosen["title"] if "chosen" in locals() else "Awakened Hunter")}</b></div>
+      </div>
+      <div class="status-bars">
+        <div class="status-bar"><div class="status-bar-head"><b>✚ HP</b><span>{hp}/{hp_max}</span></div><div class="status-track"><div class="status-fill" style="width:{hp/hp_max*100:.0f}%"></div></div></div>
+        <div class="status-bar"><div class="status-bar-head"><b>♙ MP</b><span>{mp}/{mp_max}</span></div><div class="status-track"><div class="status-fill mp" style="width:{mp/mp_max*100:.0f}%"></div></div></div>
+        <div class="status-bar"><div class="status-bar-head"><b>◉ FATIGUE</b><span>{fatigue}/100</span></div><div class="status-track"><div class="status-fill fatigue" style="width:{fatigue}%"></div></div></div>
+      </div>
+      <div class="status-stats">
+        <div class="stat-box"><b>{stats["STR"]}</b><span>STR</span></div>
+        <div class="stat-box"><b>{stats["VIT"]}</b><span>VIT</span></div>
+        <div class="stat-box"><b>{stats["AGI"]}</b><span>AGI</span></div>
+        <div class="stat-box"><b>{stats["INT"]}</b><span>INT</span></div>
+        <div class="stat-box"><b>{stats["PER"]}</b><span>PER</span></div>
+        <div class="stat-box"><b>{available}</b><span>AVAILABLE</span></div>
+      </div>
+      <div style="max-width:820px;margin:10px auto 0;color:#6f88a5;font-size:.68rem;letter-spacing:1px;text-align:center">XP {progress}/100 · STREAK {streak} · TELEMETRY SYNCED</div>
+    </div>
+    """,unsafe_allow_html=True)
+    st.components.v1.html("""
+    <script>
+    const text="SYSTEM ONLINE. HUNTER STATUS SYNCHRONIZED. YOUR NEXT QUEST AWAITS.";
+    function speakSystem(){
+      if(!window.parent.speechSynthesis){return;}
+      const u=new SpeechSynthesisUtterance(text);
+      const voices=window.parent.speechSynthesis.getVoices();
+      u.voice=voices.find(v=>/en-US|en-GB/i.test(v.lang) && /David|Mark|Daniel|Alex|Guy/i.test(v.name))
+             || voices.find(v=>/en/i.test(v.lang)) || null;
+      u.rate=.82; u.pitch=.58; u.volume=1;
+      window.parent.speechSynthesis.cancel(); window.parent.speechSynthesis.speak(u);
+    }
+    window.parent.speechSynthesis?.getVoices();
+    </script>
+    """,height=0)
+    st.markdown('<div class="system-voice">🔊 <b>SYSTEM VOICE</b> — Use the browser voice control below to hear a low, slow system announcement.</div>',unsafe_allow_html=True)
+
     st.markdown("<div class='rpg-hero'><div class='rpg-kicker'>Study → Power → Raid</div><div class='rpg-title'>Anime RPG Command Center</div><div style='color:#b9c9e3;margin-top:7px'>Real web artwork, study-powered boss battles, character collection and progress analytics.</div></div>",unsafe_allow_html=True)
     a,b,c,d=st.columns(4)
     a.metric("Hunter Level",level); b.metric("XP",f"{profile['xp']:,}"); c.metric("Streak",f"🔥 {profile['streak']}"); d.metric("Bosses Defeated",s["defeats"])
@@ -154,7 +245,7 @@ def render(path,profile,award_xp,ask_ai_fn=None):
                 art=fetch_art(ch["image"]) if unlocked else None
                 if art: st.image(art,use_container_width=True)
                 else: st.markdown(f"<div class='rpg-card' style='height:220px;display:grid;place-items:center;font-size:60px'>{'🔒' if not unlocked else '⚔️'}</div>",unsafe_allow_html=True)
-                st.markdown(f"<div class='rpg-card'><b>{html.escape(ch['name'])}</b><div class='rpg-muted'>{html.escape(ch['title'])}</div><span class='rpg-pill'>{ch['rarity']}</span><div class='rpg-muted' style='margin-top:6px'>Power {ch['power']:,}</div><div class='rpg-muted'>{'🟢 Awakened' if unlocked else f'🔒 Level {ch["unlock"]}'}</div></div>",unsafe_allow_html=True)
+                st.markdown(f"<div class='rpg-card character-card'><b>{html.escape(ch['name'])}</b><div class='rpg-muted'>{html.escape(ch['title'])}</div><span class='rpg-pill'>{ch['rarity']}</span><div class='rpg-muted' style='margin-top:6px'>Power {ch['power']:,}</div><div class='rpg-muted'>{'🟢 Awakened' if unlocked else f'🔒 Level {ch["unlock"]}'}</div></div>",unsafe_allow_html=True)
                 if unlocked and st.button("Selected" if selected else "Select",disabled=selected,key=f"rpg_char_{ch['id']}",use_container_width=True):
                     save_character(path,ch["id"]); st.rerun()
         chosen=next(x for x in CHARACTERS if x["id"]==s["selected_character"])
