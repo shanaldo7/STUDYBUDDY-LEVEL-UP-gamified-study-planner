@@ -3270,19 +3270,39 @@ elif page == "⏱️ Focus Room":
             st.rerun()
         _training = st.session_state.get("focus_training")
         _complete_ready = False
+        _remaining = int(minutes * 60)
         if _training:
-            _elapsed = max(0, int(time.time() - _training["started_at"]))
+            _now_ts = time.time()
+            _paused_total = float(_training.get("paused_total", 0))
+            if _training.get("paused_at"):
+                _elapsed = int(_training["paused_at"] - _training["started_at"] - _paused_total)
+            else:
+                _elapsed = int(_now_ts - _training["started_at"] - _paused_total)
             _remaining = max(0, int(_training["minutes"] * 60 - _elapsed))
-            _complete_ready = _remaining <= 0
+            _complete_ready = _remaining <= 0 and not _training.get("paused_at")
             _mm, _ss = divmod(_remaining, 60)
-            st.markdown(f"<div class='system-panel'><div class='focus-badge'>TRAINING STATUS</div><div style='font:800 24px Orbitron;color:white;margin-top:8px'>{'COMPLETE' if _complete_ready else f'{_mm:02d}:{_ss:02d} remaining'}</div><div class='muted'>Completion is server-gated: XP is awarded only after the configured duration has elapsed.</div></div>", unsafe_allow_html=True)
+            _status = "PAUSED" if _training.get("paused_at") else ("COMPLETE" if _complete_ready else "TRAINING")
+            st.markdown(f"<div class='system-panel'><div class='focus-badge'>{_status}</div><div style='font:800 24px Orbitron;color:white;margin-top:8px'>{'COMPLETE' if _complete_ready else f'{_mm:02d}:{_ss:02d} remaining'}</div><div class='muted'>Server-gated completion · XP is awarded only after the full active duration.</div></div>", unsafe_allow_html=True)
             if _complete_ready:
                 if st.button("🏆 CLAIM COMPLETED SESSION", type="primary", use_container_width=True):
                     reward = log_focus_session(_training["minutes"], _training["mode"], _training["completion_id"])
                     st.session_state.pop("focus_training", None)
                     st.success(f"Focus session logged · +{reward} XP")
                     st.rerun()
+            elif _training.get("paused_at"):
+                if st.button("▶️ RESUME TRAINING", type="primary", use_container_width=True):
+                    _training["paused_total"] = float(_training.get("paused_total", 0)) + (time.time() - _training["paused_at"])
+                    _training.pop("paused_at", None)
+                    st.session_state["focus_training"] = _training
+                    st.rerun()
+                if st.button("✕ END TRAINING", use_container_width=True):
+                    st.session_state.pop("focus_training", None)
+                    st.rerun()
             else:
+                if st.button("⏸️ PAUSE TRAINING", use_container_width=True):
+                    _training["paused_at"] = time.time()
+                    st.session_state["focus_training"] = _training
+                    st.rerun()
                 if st.button("↻ REFRESH TIMER STATUS", use_container_width=True):
                     st.rerun()
                 if st.button("✕ END TRAINING", use_container_width=True):
@@ -3290,7 +3310,7 @@ elif page == "⏱️ Focus Room":
                     st.rerun()
 
     with b:
-        timer_html = f"""<!doctype html><html><body style="margin:0;background:transparent;font-family:Inter,Arial;color:#eef6ff"><div style="text-align:center;padding:10px"><div id="badge" style="font-size:11px;letter-spacing:3px;color:#67e8f9;font-weight:800">FOCUS PROTOCOL</div><div id="timer" style="font:800 74px Orbitron,Arial;margin:18px 0;text-shadow:0 0 25px #67e8f955">{minutes:02d}:00</div><div style="height:8px;background:#17243a;border-radius:99px;overflow:hidden"><div id="bar" style="height:100%;width:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);border-radius:99px"></div></div><div style="margin-top:18px"><button id="start" style="border:1px solid #67e8f966;background:#12345acc;color:white;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer">START</button><button id="reset" style="margin-left:8px;border:1px solid #ffffff18;background:#0b1526cc;color:#cbdcf0;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer">RESET</button></div><div id="status" style="margin-top:13px;color:#9db4cc;font-size:13px">Start when you are ready.</div></div><script>let total={minutes}*60, left=total, timer=null;const t=document.getElementById('timer'),b=document.getElementById('bar'),s=document.getElementById('status');function render(){{let m=Math.floor(left/60),sec=left%60;t.textContent=String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');b.style.width=(left/total*100)+'%';}}document.getElementById('start').onclick=()=>{{if(timer)return;s.textContent='Session active — one task, one target.';timer=setInterval(()=>{{if(left<=0){{clearInterval(timer);timer=null;s.textContent='Session complete — claim your focus XP in the panel.';try{{new AudioContext().resume();const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=660;g.gain.value=.03;o.start();o.stop(c.currentTime+.35);}}catch(e){{}}return;}}left--;render();}},1000)}};document.getElementById('reset').onclick=()=>{{if(timer){{clearInterval(timer);timer=null}}left=total;s.textContent='Timer reset.';render()}};render();</script></body></html>"""
+        timer_html = f"""<!doctype html><html><body style="margin:0;background:transparent;font-family:Inter,Arial;color:#eef6ff"><div style="text-align:center;padding:10px"><div id="badge" style="font-size:11px;letter-spacing:3px;color:#67e8f9;font-weight:800">FOCUS PROTOCOL</div><div id="timer" style="font:800 74px Orbitron,Arial;margin:18px 0;text-shadow:0 0 25px #67e8f955">{_remaining//60:02d}:{_remaining%60:02d}</div><div style="height:8px;background:#17243a;border-radius:99px;overflow:hidden"><div id="bar" style="height:100%;width:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);border-radius:99px"></div></div><div style="margin-top:18px"><button id="start" style="border:1px solid #67e8f966;background:#12345acc;color:white;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer">START</button><button id="reset" style="margin-left:8px;border:1px solid #ffffff18;background:#0b1526cc;color:#cbdcf0;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer">RESET</button></div><div id="status" style="margin-top:13px;color:#9db4cc;font-size:13px">Start when you are ready.</div></div><script>let total={max(1,_remaining)}, left=total, timer=null;const t=document.getElementById('timer'),b=document.getElementById('bar'),s=document.getElementById('status');function render(){{let m=Math.floor(left/60),sec=left%60;t.textContent=String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');b.style.width=(left/total*100)+'%';}}document.getElementById('start').onclick=()=>{{if(timer)return;s.textContent='Session active — one task, one target.';timer=setInterval(()=>{{if(left<=0){{clearInterval(timer);timer=null;s.textContent='Session complete — claim your focus XP in the panel.';try{{new AudioContext().resume();const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=660;g.gain.value=.03;o.start();o.stop(c.currentTime+.35);}}catch(e){{}}return;}}left--;render();}},1000)}};document.getElementById('reset').onclick=()=>{{if(timer){{clearInterval(timer);timer=null}}left=total;s.textContent='Timer reset.';render()}};render();</script></body></html>"""
         components.html(timer_html, height=300, scrolling=False)
     with db() as con:
         recent = con.execute("SELECT * FROM focus_sessions ORDER BY id DESC LIMIT 10").fetchall()
