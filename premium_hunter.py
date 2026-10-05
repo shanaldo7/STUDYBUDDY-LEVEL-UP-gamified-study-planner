@@ -29,6 +29,19 @@ def render_dungeon_map(db,navigate=None):
             st.markdown(f"<div class='ph-node {cls}'><div style='font-size:1.45rem'>{icon}</div><b>{_esc(subject)}</b><div style='color:#7386a1;font-size:.68rem;margin-top:4px'>{'LOCKED' if locked else 'OPEN'} · {done}/{total} missions</div><div class='ph-track'><div class='ph-fill' style='width:{pct}%'></div></div><div style='color:#7386a1;font-size:.68rem;margin-top:4px'>{pct}% route progress</div></div>",unsafe_allow_html=True)
             if not locked and st.button('Enter region',key=f'ph_map_{i}',use_container_width=True) and navigate: navigate('⚔️ Dungeon Battles')
 
+def _ask_local_ollama(prompt):
+    base=os.getenv("OLLAMA_BASE_URL","").strip().rstrip("/")
+    if not base:
+        raise RuntimeError("Local Ollama is not configured.")
+    payload=json.dumps({"model":os.getenv("OLLAMA_MODEL","llama3.2:3b"),"prompt":prompt,"stream":False}).encode("utf-8")
+    req=urllib.request.Request(base+"/api/generate",data=payload,headers={"Content-Type":"application/json"},method="POST")
+    try:
+        with urllib.request.urlopen(req,timeout=45) as response: data=json.loads(response.read().decode("utf-8"))
+    except Exception as exc: raise RuntimeError(f"Ollama unavailable: {exc}") from exc
+    answer=str(data.get("response") or "").strip()
+    if not answer: raise RuntimeError("Ollama returned an empty response.")
+    return answer
+
 def render_system_guide(db,ai_callback=None):
     with db() as con:
         weak=con.execute("SELECT subject,COUNT(*) misses FROM mastery_events WHERE event_type IN ('wrong','incorrect','miss') GROUP BY subject ORDER BY misses DESC LIMIT 5").fetchall()
@@ -40,11 +53,11 @@ def render_system_guide(db,ai_callback=None):
     hint=st.checkbox('Hint mode — never reveal the final answer',True,key='ph_hint_mode')
     if st.button('Consult the Guide',type='primary',key='ph_consult'):
         if not prompt.strip(): st.warning('Enter a topic or study question first.')
-        elif ai_callback is None: st.info('AI is unavailable. StudyBuddy remains usable.')
+        elif ai_callback is None and not os.getenv('OLLAMA_BASE_URL'): st.info('AI is unavailable. StudyBuddy remains usable.')
         else:
             instruction=('You are StudyBuddy System Guide. Explain simply. '+('Give only a hint/reasoning path, never the final answer.' if hint else 'Only answer after the student has attempted it.')+f' Request: {prompt.strip()}')
             try:
-                with st.spinner('The System Guide is analyzing…'): answer=ai_callback(instruction,'You are a concise study mentor. Never invent facts.')
+                with st.spinner('The System Guide is analyzing…'): answer=(ai_callback(instruction,'You are a concise study mentor. Never invent facts.') if ai_callback else _ask_local_ollama(instruction))
                 st.markdown(f"<div class='ph-card'><b>Guide transmission</b><br>{_esc(answer).replace(chr(10),'<br>')}</div>",unsafe_allow_html=True); st.toast('Guide response ready',icon='✦')
             except Exception as exc: st.error(f'AI unavailable: {exc}')
 
