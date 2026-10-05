@@ -1371,24 +1371,24 @@ def xp_progress(xp):
 # Shadow soldiers unlock as the player levels up. The AI gives each one a
 # distinct study-support personality; it does not control game rewards.
 SHADOW_ARMY = [
-    {"id":"igris", "name":"Igris", "title":"Blood-Red Commander", "emoji":"⚔️", "level":2, "dungeons":1,
+    {"id":"igris", "name":"Crimson Warden", "title":"Blood-Red Commander", "emoji":"⚔️", "level":2, "dungeons":1,
      "ability":"Discipline Protocol", "description":"Turns a big goal into a strict, manageable study mission.",
      "persona":"You are Igris, a formal, disciplined shadow knight and study companion. Speak with calm, loyal, concise commander-like language. Help the player break work into clear steps and stay disciplined. Never claim to change app data or award XP."},
-    {"id":"tank", "name":"Tank", "title":"Frost Bear", "emoji":"🐻", "level":3, "dungeons":2,
+    {"id":"tank", "name":"Frostmaw", "title":"Frost Bear", "emoji":"🐻", "level":3, "dungeons":2,
      "ability":"Memory Guard", "description":"Helps the player remember concepts using recall prompts and simple examples.",
      "persona":"You are Tank, a powerful but friendly shadow bear who supports the hunter's learning. Use simple explanations, memory tricks, and short recall questions. Be warm and encouraging. Never claim to change app data or award XP."},
-    {"id":"iron", "name":"Iron", "title":"Armored Guardian", "emoji":"🛡️", "level":5, "dungeons":3,
+    {"id":"iron", "name":"Ironclad", "title":"Armored Guardian", "emoji":"🛡️", "level":5, "dungeons":3,
      "ability":"Focus Shield", "description":"Helps remove distractions and build a short, focused work session.",
      "persona":"You are Iron, an energetic armored shadow soldier. Help the player focus, overcome procrastination, and choose one practical next action. Use a playful, confident tone without being rude. Never claim to change app data or award XP."},
-    {"id":"tusk", "name":"Tusk", "title":"High Orc Shaman", "emoji":"🔮", "level":7, "dungeons":5,
+    {"id":"tusk", "name":"Arcane Brute", "title":"High Orc Shaman", "emoji":"🔮", "level":7, "dungeons":5,
      "ability":"Knowledge Spell", "description":"Creates practice questions and explains difficult topics in beginner-friendly language.",
      "persona":"You are Tusk, a wise shadow shaman and study companion. Help with concepts, create short practice questions, and explain things in beginner-friendly steps. If the player asks for factual help, be accurate and admit uncertainty. Never claim to change app data or award XP."},
-    {"id":"beru", "name":"Beru", "title":"Ant King", "emoji":"👑", "level":10, "dungeons":8,
+    {"id":"beru", "name":"Royal Mantis", "title":"Ant King", "emoji":"👑", "level":10, "dungeons":8,
      "ability":"Royal Tutor", "description":"Acts as an enthusiastic personal tutor: quizzes, gives feedback, and celebrates progress.",
      "persona":"You are Beru, an intensely loyal, enthusiastic shadow soldier and personal study tutor. Address the player as your honored master occasionally, but keep it friendly and not excessive. Offer quizzes, check understanding, and celebrate effort. Be concise and accurate; do not invent facts. Never claim to change app data or award XP."},
 ]
 
-# Official Solo Leveling Season 2 shadow promotional art. Images load from the
+# Original hunter-dungeon avatars. Images load from the
 # anime website when the app has internet access. Keep local fallback avatars.
 SHADOW_IMAGES = {
     "igris": "https://sololeveling-anime.net/assets/img/special/shadows-visual/igrit.jpg",
@@ -1734,31 +1734,31 @@ Do not claim to have performed an app action unless the application explicitly p
         raise _friendly_ai_error(exc, model_name)
 
 
-# Cinematic Solo Leveling shadow roster for Dungeon Battles.
+# Original hunter-dungeon boss roster with stable IDs.
 # Artwork is loaded from the official Solo Leveling Season 2 shadow-visual page.
 DUNGEON_BOSSES = {
     "igrit": {
-        "name":"Igris", "element":"SHADOW", "color":"#ef4444",
+        "name":"Crimson Warden", "element":"SHADOW", "color":"#ef4444",
         "description":"The Blood-Red Commander. Precision and consistency are your weapons.",
-        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/igrit.jpg",
+        "image":"",
         "attack":"Blood-Red Cleave", "bonus":20, "rank":"S-RANK"
     },
     "beru": {
-        "name":"Beru", "element":"SHADOW", "color":"#a855f7",
+        "name":"Royal Mantis", "element":"SHADOW", "color":"#a855f7",
         "description":"The Ant King. A relentless knowledge trial that rewards momentum.",
-        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/beru.jpg",
+        "image":"",
         "attack":"Royal Devour", "bonus":25, "rank":"S-RANK"
     },
     "tank": {
-        "name":"Tank", "element":"FROST", "color":"#22d3ee",
+        "name":"Frostmaw", "element":"FROST", "color":"#22d3ee",
         "description":"The Frost Bear. Defensive mastery meets careful recall.",
-        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/tank.jpg",
+        "image":"",
         "attack":"Glacial Guard", "bonus":18, "rank":"A-RANK"
     },
     "kiba": {
         "name":"Kiba", "element":"SHADOW", "color":"#f43f5e",
         "description":"The High Orc Shaman. A tactical trial for deeper subject mastery.",
-        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/kiba.jpg",
+        "image":"",
         "attack":"Mana Break", "bonus":22, "rank":"A-RANK"
     },
     "kaisel": {
