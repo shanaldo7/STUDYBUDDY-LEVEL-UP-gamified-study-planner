@@ -1256,8 +1256,12 @@ with db() as con:
     )""")
     con.execute("""CREATE TABLE IF NOT EXISTS focus_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT, started_at TEXT NOT NULL, minutes INTEGER NOT NULL,
-        mode TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 1
+        mode TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 1, completion_id TEXT
     )""")
+    focus_columns = {row[1] for row in con.execute("PRAGMA table_info(focus_sessions)").fetchall()}
+    if "completion_id" not in focus_columns:
+        con.execute("ALTER TABLE focus_sessions ADD COLUMN completion_id TEXT")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_focus_completion_id ON focus_sessions(completion_id)")
     con.execute("""CREATE TABLE IF NOT EXISTS revision_cards (
         id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT, front TEXT NOT NULL, back TEXT NOT NULL,
         interval_days INTEGER NOT NULL DEFAULT 1, ease REAL NOT NULL DEFAULT 2.5, repetitions INTEGER NOT NULL DEFAULT 0,
@@ -1790,6 +1794,9 @@ ACHIEVEMENTS = [
     {"id":"perfect_dungeon","icon":"💀","name":"Perfect Clear","desc":"Finish a dungeon with every answer correct.","kind":"perfect_dungeon","value":1},
     {"id":"review_10","icon":"🧠","name":"Memory Awakening","desc":"Review 10 flashcards.","kind":"reviews","value":10},
     {"id":"s_rank","icon":"👑","name":"S-Rank Scholar","desc":"Reach S-Rank.","kind":"rank","value":"S-RANK"},
+    {"id":"answers_100","icon":"🎯","name":"Hundred Strikes","desc":"Answer 100 dungeon questions correctly.","kind":"correct_answers","value":100},
+    {"id":"perfect_quiz","icon":"💎","name":"Flawless Hunter","desc":"Complete a perfect quiz.","kind":"perfect_dungeon","value":1},
+    {"id":"focus_10","icon":"🔥","name":"Training Streak","desc":"Complete 10 focus sessions.","kind":"focus_sessions","value":10},
 ]
 
 DUNGEON_BANK = {
@@ -1842,10 +1849,13 @@ def get_activity_metrics():
         dungeon_runs = con.execute("SELECT COUNT(*) FROM dungeon_runs").fetchone()[0]
         dungeon_wins = con.execute("SELECT COUNT(*) FROM dungeon_runs WHERE correct>0").fetchone()[0]
         perfects = con.execute("SELECT COUNT(*) FROM dungeon_runs WHERE perfect=1").fetchone()[0]
+        correct_answers = con.execute("SELECT COALESCE(SUM(correct),0) FROM dungeon_runs").fetchone()[0]
+        focus_sessions = con.execute("SELECT COUNT(*) FROM focus_sessions WHERE completed=1").fetchone()[0]
         reviews = con.execute("SELECT COUNT(*) FROM review_log").fetchone()[0]
         due_cards = con.execute("SELECT COUNT(*) FROM revision_cards WHERE due<=?", (date.today().isoformat(),)).fetchone()[0]
     return {"completed_quests":completed,"focus_minutes":int(focus_minutes or 0),"week_focus":int(week_focus or 0),
             "dungeon_runs":dungeon_runs,"dungeon_wins":dungeon_wins,"perfect_dungeon":perfects,
+            "correct_answers":int(correct_answers or 0),"focus_sessions":int(focus_sessions or 0),
             "reviews":reviews,"due_cards":due_cards}
 
 
@@ -1881,12 +1891,20 @@ def maybe_award_daily_bonus():
     return True
 
 
-def log_focus_session(minutes, mode):
+def log_focus_session(minutes, mode, completion_id=None):
     minutes = max(1, int(minutes))
+    completion_id = completion_id or ("focus_" + hashlib.sha256(f"{mode}|{minutes}|{_now()}".encode()).hexdigest()[:24])
     with db() as con:
-        con.execute("INSERT INTO focus_sessions(started_at,minutes,mode,completed) VALUES(?,?,?,1)", (_now(), minutes, mode))
-    reward = max(5, min(40, minutes // 5 * 2))
-    award_xp(reward, minutes, source="focus", note=f"Completed {minutes}-minute focus session")
+        try:
+            con.execute(
+                "INSERT INTO focus_sessions(started_at,minutes,mode,completed,completion_id) VALUES(?,?,?,1,?)",
+                (_now(), minutes, mode, completion_id),
+            )
+        except sqlite3.IntegrityError:
+            return 0
+    reward = max(5, min(40, round((minutes // 5 * 2) * focus_multiplier(db()))))
+    reward = int(round(reward * xp_multiplier(db())))
+    award_xp(reward, minutes, source="focus", note=f"Completed {minutes}-minute focus session", completion_id=completion_id)
     evaluate_achievements()
     return reward
 
@@ -2132,6 +2150,8 @@ with st.sidebar:
         _nav_target = pages[0]
     page = st.radio("Navigation", pages, index=pages.index(_nav_target), label_visibility="collapsed")
     st.session_state["nav_page"] = page
+    render_offline_indicator()
+    render_offline_journal()
     st.divider()
 
     st.markdown("<div class='sidebar-section-label'>Gemma AI · Google Cloud</div>", unsafe_allow_html=True)
@@ -2364,6 +2384,26 @@ if page == "🏠 Hunter Dashboard":
         st.session_state["nav_page"]="🎯 Study Intelligence"
         st.rerun()
 
+    d1, d2 = st.columns([2, 1])
+    with d1:
+        if st.button("⚔️ CONTINUE DUNGEON", type="primary", use_container_width=True):
+            st.session_state["nav_page"] = "⚔️ Dungeon Battles"
+            st.rerun()
+    with d2:
+        st.markdown(f"<div class='system-next'><span class='muted'>SKILL POINTS</span><b>{max(0, level-1)}</b><div class='muted'>Open Skill Tree</div></div>", unsafe_allow_html=True)
+
+    st.markdown("### ◈ Weekly XP")
+    with db() as con:
+        _week_start = current_week_start().isoformat()
+        _xp_days = []
+        for _i in range(7):
+            _day = current_week_start() + timedelta(days=_i)
+            _val = con.execute("SELECT COALESCE(SUM(amount),0) FROM xp_log WHERE amount>0 AND substr(happened_at,1,10)=?", (_day.isoformat(),)).fetchone()[0]
+            _xp_days.append(( _day.strftime("%a"), int(_val or 0) ))
+    _max_xp = max([v for _,v in _xp_days] + [1])
+    _bars = "".join(f"<div style='flex:1;text-align:center'><div style='height:90px;display:flex;align-items:flex-end;justify-content:center'><div style='width:70%;height:{max(6,int(v/_max_xp*100))}%;border-radius:7px 7px 2px 2px;background:linear-gradient(180deg,#67e8f9,#7c3aed);box-shadow:0 0 14px rgba(103,232,249,.12)'></div></div><div class='muted'>{d}</div><div style='font-size:.65rem;color:#67e8f9'>{v} XP</div></div>" for d,v in _xp_days)
+    st.markdown(f"<div class='panel'><div class='panel-title'>WEEKLY XP OUTPUT</div><div style='display:flex;gap:10px;align-items:flex-end'>{_bars}</div></div>", unsafe_allow_html=True)
+
     st.markdown("### ◈ Command Deck")
     for row in range(0, len(commands), 4):
         cols = st.columns(4, gap="medium")
@@ -2428,6 +2468,10 @@ elif page == "🎯 Study Intelligence":
     render_module_hud(page)
     render_ai_intelligence(st, db, profile, ask_ollama, has_api_key, get_selected_model())
 
+
+elif page == "🌳 Skill Tree":
+    render_module_hud(page)
+    render_skill_tree(db, profile, _now())
 
 elif page == "🎓 Exam Command Center":
     render_module_hud(page)
@@ -3186,10 +3230,33 @@ elif page == "⏱️ Focus Room":
         if custom:
             minutes = st.slider("Minutes", 5, 120, 25, 5)
         st.markdown(f"<div class='system-panel'><div class='focus-badge'>CURRENT PROTOCOL</div><div style='font:800 28px Orbitron;color:white;margin-top:8px'>{minutes} MIN</div><div class='muted'>Complete the session, then claim your focus XP.</div></div>", unsafe_allow_html=True)
-        if st.button("✅ Log completed focus session", type="primary", use_container_width=True):
-            reward = log_focus_session(minutes, mode)
-            st.success(f"Focus session logged · +{reward} XP")
+        if st.button("▶️ START TRAINING", type="primary", use_container_width=True):
+            st.session_state["focus_training"] = {
+                "started_at": time.time(), "minutes": int(minutes), "mode": mode,
+                "completion_id": "focus_" + hashlib.sha256(f"{mode}|{minutes}|{time.time()}".encode()).hexdigest()[:24]
+            }
             st.rerun()
+        _training = st.session_state.get("focus_training")
+        _complete_ready = False
+        if _training:
+            _elapsed = max(0, int(time.time() - _training["started_at"]))
+            _remaining = max(0, int(_training["minutes"] * 60 - _elapsed))
+            _complete_ready = _remaining <= 0
+            _mm, _ss = divmod(_remaining, 60)
+            st.markdown(f"<div class='system-panel'><div class='focus-badge'>TRAINING STATUS</div><div style='font:800 24px Orbitron;color:white;margin-top:8px'>{'COMPLETE' if _complete_ready else f'{_mm:02d}:{_ss:02d} remaining'}</div><div class='muted'>Completion is server-gated: XP is awarded only after the configured duration has elapsed.</div></div>", unsafe_allow_html=True)
+            if _complete_ready:
+                if st.button("🏆 CLAIM COMPLETED SESSION", type="primary", use_container_width=True):
+                    reward = log_focus_session(_training["minutes"], _training["mode"], _training["completion_id"])
+                    st.session_state.pop("focus_training", None)
+                    st.success(f"Focus session logged · +{reward} XP")
+                    st.rerun()
+            else:
+                if st.button("↻ REFRESH TIMER STATUS", use_container_width=True):
+                    st.rerun()
+                if st.button("✕ END TRAINING", use_container_width=True):
+                    st.session_state.pop("focus_training", None)
+                    st.rerun()
+
     with b:
         timer_html = f"""<!doctype html><html><body style="margin:0;background:transparent;font-family:Inter,Arial;color:#eef6ff"><div style="text-align:center;padding:10px"><div id="badge" style="font-size:11px;letter-spacing:3px;color:#67e8f9;font-weight:800">FOCUS PROTOCOL</div><div id="timer" style="font:800 74px Orbitron,Arial;margin:18px 0;text-shadow:0 0 25px #67e8f955">{minutes:02d}:00</div><div style="height:8px;background:#17243a;border-radius:99px;overflow:hidden"><div id="bar" style="height:100%;width:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);border-radius:99px"></div></div><div style="margin-top:18px"><button id="start" style="border:1px solid #67e8f966;background:#12345acc;color:white;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer">START</button><button id="reset" style="margin-left:8px;border:1px solid #ffffff18;background:#0b1526cc;color:#cbdcf0;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer">RESET</button></div><div id="status" style="margin-top:13px;color:#9db4cc;font-size:13px">Start when you are ready.</div></div><script>let total={minutes}*60, left=total, timer=null;const t=document.getElementById('timer'),b=document.getElementById('bar'),s=document.getElementById('status');function render(){{let m=Math.floor(left/60),sec=left%60;t.textContent=String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');b.style.width=(left/total*100)+'%';}}document.getElementById('start').onclick=()=>{{if(timer)return;s.textContent='Session active — one task, one target.';timer=setInterval(()=>{{if(left<=0){{clearInterval(timer);timer=null;s.textContent='Session complete — claim your focus XP in the panel.';try{{new AudioContext().resume();const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=660;g.gain.value=.03;o.start();o.stop(c.currentTime+.35);}}catch(e){{}}return;}}left--;render();}},1000)}};document.getElementById('reset').onclick=()=>{{if(timer){{clearInterval(timer);timer=null}}left=total;s.textContent='Timer reset.';render()}};render();</script></body></html>"""
         components.html(timer_html, height=300, scrolling=False)
