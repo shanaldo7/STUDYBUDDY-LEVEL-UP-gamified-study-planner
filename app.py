@@ -48,6 +48,9 @@ DB_PATH = DATA_DIR / "studybuddy.db"
 PDF_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+MOTION_CSS = (APP_DIR / "assets" / "motion.css").read_text(encoding="utf-8") if (APP_DIR / "assets" / "motion.css").exists() else ""
+MOTION_JS = (APP_DIR / "assets" / "motion.js").read_text(encoding="utf-8") if (APP_DIR / "assets" / "motion.js").exists() else ""
+
 st.set_page_config(page_title="StudyBuddy | Level Up", page_icon="⚔️", layout="wide")
 
 st.markdown("""
@@ -1137,6 +1140,10 @@ input:focus, textarea:focus,
 
 </style>
 """, unsafe_allow_html=True)
+if MOTION_CSS:
+    st.markdown("<style id='studybuddy-motion-layer'>"+MOTION_CSS+"</style>", unsafe_allow_html=True)
+st.markdown("<div class='sb-grid-floor' aria-hidden='true'></div>", unsafe_allow_html=True)
+
 
 
 # ============================================================
@@ -1292,19 +1299,19 @@ def xp_progress(xp):
 # Shadow soldiers unlock as the player levels up. The AI gives each one a
 # distinct study-support personality; it does not control game rewards.
 SHADOW_ARMY = [
-    {"id":"igris", "name":"Igris", "title":"Blood-Red Commander", "emoji":"⚔️", "level":1,
+    {"id":"igris", "name":"Igris", "title":"Blood-Red Commander", "emoji":"⚔️", "level":2, "dungeons":1,
      "ability":"Discipline Protocol", "description":"Turns a big goal into a strict, manageable study mission.",
      "persona":"You are Igris, a formal, disciplined shadow knight and study companion. Speak with calm, loyal, concise commander-like language. Help the player break work into clear steps and stay disciplined. Never claim to change app data or award XP."},
-    {"id":"tank", "name":"Tank", "title":"Frost Bear", "emoji":"🐻", "level":2,
+    {"id":"tank", "name":"Tank", "title":"Frost Bear", "emoji":"🐻", "level":3, "dungeons":2,
      "ability":"Memory Guard", "description":"Helps the player remember concepts using recall prompts and simple examples.",
      "persona":"You are Tank, a powerful but friendly shadow bear who supports the hunter's learning. Use simple explanations, memory tricks, and short recall questions. Be warm and encouraging. Never claim to change app data or award XP."},
-    {"id":"iron", "name":"Iron", "title":"Armored Guardian", "emoji":"🛡️", "level":3,
+    {"id":"iron", "name":"Iron", "title":"Armored Guardian", "emoji":"🛡️", "level":5, "dungeons":3,
      "ability":"Focus Shield", "description":"Helps remove distractions and build a short, focused work session.",
      "persona":"You are Iron, an energetic armored shadow soldier. Help the player focus, overcome procrastination, and choose one practical next action. Use a playful, confident tone without being rude. Never claim to change app data or award XP."},
-    {"id":"tusk", "name":"Tusk", "title":"High Orc Shaman", "emoji":"🔮", "level":4,
+    {"id":"tusk", "name":"Tusk", "title":"High Orc Shaman", "emoji":"🔮", "level":7, "dungeons":5,
      "ability":"Knowledge Spell", "description":"Creates practice questions and explains difficult topics in beginner-friendly language.",
      "persona":"You are Tusk, a wise shadow shaman and study companion. Help with concepts, create short practice questions, and explain things in beginner-friendly steps. If the player asks for factual help, be accurate and admit uncertainty. Never claim to change app data or award XP."},
-    {"id":"beru", "name":"Beru", "title":"Ant King", "emoji":"👑", "level":5,
+    {"id":"beru", "name":"Beru", "title":"Ant King", "emoji":"👑", "level":10, "dungeons":8,
      "ability":"Royal Tutor", "description":"Acts as an enthusiastic personal tutor: quizzes, gives feedback, and celebrates progress.",
      "persona":"You are Beru, an intensely loyal, enthusiastic shadow soldier and personal study tutor. Address the player as your honored master occasionally, but keep it friendly and not excessive. Offer quizzes, check understanding, and celebrate effort. Be concise and accurate; do not invent facts. Never claim to change app data or award XP."},
 ]
@@ -1332,9 +1339,24 @@ def load_shadow_image(url):
     except (urllib.error.URLError, TimeoutError, OSError):
         return None
 
-def unlocked_shadows(xp):
+def dungeon_battle_count():
+    with db() as con:
+        return int(con.execute("SELECT COUNT(*) FROM dungeon_runs").fetchone()[0] or 0)
+
+def shadow_unlock_state(xp, battles=None):
+    """Unlocks require BOTH Hunter level and completed Dungeon battles."""
+    if battles is None:
+        battles = dungeon_battle_count()
     current_level = level_for(xp)
-    return [soldier for soldier in SHADOW_ARMY if current_level >= soldier["level"]]
+    rows = []
+    for soldier in SHADOW_ARMY:
+        needed_level = int(soldier["level"])
+        needed_battles = int(soldier.get("dungeons", 1))
+        rows.append((soldier, current_level >= needed_level and battles >= needed_battles, needed_level, needed_battles))
+    return rows
+
+def unlocked_shadows(xp, battles=None):
+    return [soldier for soldier, unlocked, _, _ in shadow_unlock_state(xp, battles) if unlocked]
 
 def get_profile():
     with db() as con: return dict(con.execute("SELECT * FROM profile WHERE id=1").fetchone())
@@ -1916,6 +1938,9 @@ def finish_dungeon():
     run = st.session_state.get("dungeon_run")
     if not run or run.get("finished"):
         return 0
+    before_profile = get_profile()
+    before_battles = dungeon_battle_count()
+    before_ids = {s["id"] for s in unlocked_shadows(before_profile["xp"], before_battles)}
     correct = run["correct"]
     total = len(run["questions"])
     perfect = correct == total
@@ -1930,6 +1955,15 @@ def finish_dungeon():
     run["xp_earned"] = xp
     run["perfect"] = perfect
     st.session_state["dungeon_run"] = run
+    after_profile = get_profile()
+    after_battles = dungeon_battle_count()
+    after_ids = {s["id"] for s in unlocked_shadows(after_profile["xp"], after_battles)}
+    newly_unlocked = [s for s in SHADOW_ARMY if s["id"] in (after_ids - before_ids)]
+    if newly_unlocked:
+        st.session_state["shadow_unlock_event"] = [
+            {"name": s["name"], "title": s["title"], "emoji": s["emoji"], "level": s["level"], "dungeons": s.get("dungeons", 1)}
+            for s in newly_unlocked
+        ]
     return xp
 
 
@@ -2632,6 +2666,21 @@ elif page == "✨ Gemma Study Lab":
 elif page == "👥 Shadow Army":
     render_module_hud(page)
     available = unlocked_shadows(profile["xp"])
+    unlock_event = st.session_state.pop("shadow_unlock_event", None)
+    if unlock_event:
+        for unlock in unlock_event:
+            st.markdown(
+                f"""<div class='sb-unlock' data-sb-motion='1'>
+                  <div class='sb-unlock-seal'>{unlock["emoji"]}</div>
+                  <div class='sb-unlock-kicker'>DUNGEON CLEAR · SHADOW EXTRACTION COMPLETE</div>
+                  <div class='sb-unlock-title'>{html.escape(unlock["name"])} AWAKENED</div>
+                  <div class='sb-unlock-sub'>{html.escape(unlock["title"])} · Level {unlock["level"]} · Dungeon milestone {unlock["dungeons"]}</div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+            if MOTION_JS:
+                components.html("<div data-sb-motion='1'></div><script>"+MOTION_JS+"</script>", height=1, scrolling=False)
+        st.success("⚔️ New shadow added to your Army. Its study ability is now available.")
     st.markdown(
         f"""<div class='hero'>
           <div class='hero-kicker'>Shadow Extraction · Companion System</div>
@@ -2644,14 +2693,16 @@ elif page == "👥 Shadow Army":
         </div>""",
         unsafe_allow_html=True,
     )
-    st.markdown(f"**Army strength · {len(available)}/{len(SHADOW_ARMY)} shadows awakened**")
+    battles = dungeon_battle_count()
+    st.markdown(f"**Army strength · {len(available)}/{len(SHADOW_ARMY)} shadows awakened** · **{battles} dungeon clears**")
     st.progress(len(available) / len(SHADOW_ARMY))
+    st.markdown("<div class='system-panel'><div class='panel-title'>◈ SHADOW AWAKENING PROTOCOL</div><div class='muted'>Every companion requires a Hunter level AND completed Dungeon clears. Clear battles to awaken the next shadow.</div></div>", unsafe_allow_html=True)
     cols = st.columns(2)
     for idx, soldier in enumerate(SHADOW_ARMY):
         unlocked = soldier in available
         with cols[idx % 2]:
             opacity = "1" if unlocked else ".48"
-            status = "🟢 AWAKENED" if unlocked else f"🔒 Unlock at Level {soldier['level']}"
+            status = "🟢 AWAKENED" if unlocked else f"🔒 LV {soldier['level']} + {soldier.get('dungeons',1)} DUNGEON CLEARS"
             # Only reveal character art after the soldier is unlocked.
             art = load_shadow_image(SHADOW_IMAGES[soldier["id"]]) if unlocked and soldier["id"] in SHADOW_IMAGES else None
             if art:
@@ -2671,7 +2722,7 @@ elif page == "👥 Shadow Army":
                 f"<div class='muted'>{soldier['title'] if unlocked else 'Unknown shadow'}</div>"
                 f"<div style='margin-top:12px;color:#67e8f9;font-weight:700'>{status}</div>"
                 f"<div style='margin-top:7px'><b>{soldier['ability'] if unlocked else 'Hidden ability'}</b></div>"
-                f"<div class='muted' style='margin-top:5px'>{soldier['description'] if unlocked else 'Complete study quests and gain levels to reveal this soldier.'}</div></div>",
+                f"<div class='muted' style='margin-top:5px'>{soldier['description'] if unlocked else f'Clear {soldier.get("dungeons",1)} Dungeon battle(s) and reach Level {soldier["level"]} to awaken this shadow.'}</div></div>",
                 unsafe_allow_html=True,
             )
     st.divider()
