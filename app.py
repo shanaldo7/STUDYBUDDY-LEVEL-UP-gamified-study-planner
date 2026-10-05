@@ -2546,6 +2546,7 @@ elif page == "🤖 AI System Assistant":
         unsafe_allow_html=True,
     )
     st.caption("Change the active model anytime from the sidebar · Inference runs through Google Gemma on Google Cloud")
+    render_system_guide(db, ask_ollama if _ai_connected else None)
 
     plan_tab, mentor_tab = st.tabs(["⚡ Generate Today's Quests", "🗡️ Ask the Shadow Mentor"])
 
