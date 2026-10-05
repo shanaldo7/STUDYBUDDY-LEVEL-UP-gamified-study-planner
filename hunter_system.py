@@ -85,6 +85,19 @@ HUNTER_SYSTEM_CSS = """
 </style>
 """
 
+def wallet(db_fn):
+    ensure_tables(db_fn)
+    with db_fn() as con:
+        row = con.execute("SELECT coins,gems FROM hunter_wallet WHERE id=1").fetchone()
+    return {"coins": int(row["coins"]), "gems": int(row["gems"])} if row else {"coins": 0, "gems": 0}
+
+
+def grant_currency(db_fn, coins=0, gems=0):
+    ensure_tables(db_fn)
+    with db_fn() as con:
+        con.execute("UPDATE hunter_wallet SET coins=coins+?,gems=gems+? WHERE id=1", (int(coins), int(gems)))
+
+
 def ensure_tables(db_fn):
     with db_fn() as con:
         con.execute(
@@ -95,6 +108,14 @@ def ensure_tables(db_fn):
                 updated_at TEXT NOT NULL
             )"""
         )
+        con.execute(
+            """CREATE TABLE IF NOT EXISTS hunter_wallet (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                coins INTEGER NOT NULL DEFAULT 0,
+                gems INTEGER NOT NULL DEFAULT 0
+            )"""
+        )
+        con.execute("INSERT OR IGNORE INTO hunter_wallet(id) VALUES(1)")
         con.execute(
             """CREATE TABLE IF NOT EXISTS hunter_skills (
                 skill_id TEXT PRIMARY KEY,
