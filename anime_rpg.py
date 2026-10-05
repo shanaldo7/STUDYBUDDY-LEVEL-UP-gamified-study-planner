@@ -6,6 +6,7 @@ import urllib.error
 from datetime import datetime
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 CHARACTERS = [
     {"id":"jinwoo","name":"Sung Jin-Woo","title":"Shadow Monarch","rarity":"Mythic","unlock":1,"power":1000,
