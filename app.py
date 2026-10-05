@@ -1103,6 +1103,21 @@ input:focus, textarea:focus,
 .module-motion span{display:block;color:#667992;font-size:.61rem;margin-top:2px}
 @media(max-width:650px){.module-motion-row{grid-template-columns:1fr}}
 
+
+/* ── Pro Study Intelligence ───────────────────────────────── */
+.intel-hero{position:relative;overflow:hidden;border-radius:26px;padding:28px;margin-bottom:18px;border:1px solid rgba(103,232,249,.25);background:radial-gradient(circle at 85% 20%,rgba(139,92,246,.20),transparent 30%),radial-gradient(circle at 15% 80%,rgba(34,211,238,.11),transparent 32%),linear-gradient(135deg,rgba(8,17,34,.94),rgba(28,14,48,.94));box-shadow:0 26px 75px rgba(0,0,0,.44)}
+.intel-hero::before{content:"";position:absolute;right:-80px;top:-100px;width:300px;height:300px;border:1px solid rgba(103,232,249,.13);border-radius:50%;box-shadow:0 0 0 35px rgba(103,232,249,.025),0 0 0 70px rgba(167,139,250,.018);pointer-events:none}
+.intel-kicker{color:#67e8f9;font:800 .62rem Orbitron,sans-serif;letter-spacing:2px;text-transform:uppercase}.intel-title{color:#fff;font:800 clamp(1.6rem,3vw,2.5rem) Orbitron,sans-serif;margin:6px 0}.intel-sub{color:#93a6c0;max-width:760px;font-size:.83rem}
+.intel-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0 18px}
+.intel-card{position:relative;overflow:hidden;padding:16px;border-radius:17px;border:1px solid rgba(126,177,235,.17);background:linear-gradient(145deg,rgba(18,31,57,.78),rgba(10,15,29,.78));box-shadow:0 14px 35px rgba(0,0,0,.26);transition:transform .25s,border-color .25s}
+.intel-card:hover{transform:translateY(-4px);border-color:rgba(103,232,249,.4)}.intel-card-label{color:#7386a1;font:700 .59rem Orbitron,sans-serif;letter-spacing:1.2px}.intel-card-value{color:#fff;font:800 1.45rem Orbitron,sans-serif;margin-top:5px}.intel-card-note{color:#8091a8;font-size:.65rem;margin-top:3px}
+.intel-radar{display:grid;grid-template-columns:1.25fr .75fr;gap:14px}.intel-panel{padding:18px;border-radius:20px;border:1px solid rgba(126,177,235,.16);background:linear-gradient(150deg,rgba(13,23,43,.78),rgba(10,14,27,.72));box-shadow:0 16px 42px rgba(0,0,0,.28)}
+.intel-panel-title{color:#edf5ff;font:800 .78rem Orbitron,sans-serif;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}.intel-topic{display:flex;align-items:center;gap:10px;margin:10px 0}.intel-topic-name{width:120px;color:#c7d5e8;font-size:.72rem}.intel-topic-track{height:8px;flex:1;border-radius:99px;background:#17243a;overflow:hidden}.intel-topic-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#22d3ee,#8b5cf6)}.intel-topic-score{width:38px;text-align:right;color:#fff;font:700 .67rem Orbitron,sans-serif}
+.intel-plan{display:grid;gap:8px}.intel-plan-item{display:grid;grid-template-columns:70px 1fr auto;gap:10px;align-items:center;padding:11px;border-radius:13px;background:rgba(5,10,21,.5);border:1px solid rgba(255,255,255,.06)}.intel-plan-time{color:#67e8f9;font:800 .63rem Orbitron,sans-serif}.intel-plan-main{color:#eaf2ff;font-size:.73rem;font-weight:700}.intel-plan-sub{color:#71839f;font-size:.62rem}.intel-plan-xp{color:#fbbf24;font:700 .62rem Orbitron,sans-serif}
+.intel-callout{padding:13px 15px;border-radius:14px;border:1px solid rgba(167,139,250,.20);background:linear-gradient(110deg,rgba(65,45,105,.22),rgba(10,22,42,.35));color:#b8c8de;font-size:.73rem;line-height:1.55}
+.intel-streak{font:800 2rem Orbitron,sans-serif;color:#fff}.intel-streak span{font-size:.7rem;color:#67e8f9;letter-spacing:1px}
+@media(max-width:950px){.intel-grid{grid-template-columns:repeat(2,1fr)}.intel-radar{grid-template-columns:1fr}}@media(max-width:600px){.intel-grid{grid-template-columns:1fr}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -1121,6 +1136,7 @@ def render_module_hud(current_page):
         "✨ Gemma Study Lab": ("AI LAB · GEMMA INTELLIGENCE","Generate study material, quizzes and plans."),
         "🏆 Achievements": ("HUNTER ARCHIVE · MILESTONES","Track unlocks, rewards and progression."),
         "📊 Hunter Report": ("SYSTEM ANALYTICS · PERFORMANCE","Read your study telemetry and progression."),
+        "🎯 Study Intelligence": ("ADAPTIVE CORE · PERSONALIZED LEARNING","Turn your activity into a daily plan, weak-topic radar and AI coaching."),
         "🤖 AI System Assistant": ("SYSTEM CORE · AI ASSISTANT","Use the assistant as your tactical study operator."),
         "👥 Shadow Army": ("SHADOW COMMAND · COMPANIONS","Manage your companions and squad progression."),
         "👑 Anime RPG": ("RPG SYSTEM · PROGRESSION","Characters, bosses, rewards and power progression."),
@@ -1926,6 +1942,7 @@ pages = [
     "✨ Gemma Study Lab",
     "🏆 Achievements",
     "📊 Hunter Report",
+    "🎯 Study Intelligence",
     "🤖 AI System Assistant",
     "👥 Shadow Army",
     "👑 Anime RPG",
@@ -2166,6 +2183,14 @@ if page == "🏠 Hunter Dashboard":
         ("🤝","Guild Hall","Manage your study party.","🤝 Guild Hall"),
         ("🧬","Character & Power","Upgrade your hunter.","🧬 Character & Power"),
     ]
+    st.markdown("### ◈ Intelligence Brief")
+    _due_now = metrics["due_cards"]
+    _next = "Clear due revision cards" if _due_now else ("Run a 25-minute focus session" if today_focus < 25 else "Deploy your next quest")
+    st.markdown(f"<div class='system-next'><span class='muted'>ADAPTIVE NEXT ACTION</span><b>{_next}</b><div class='muted'>Study Intelligence combines your real activity, memory queue and mission completion to choose the next useful action.</div></div>", unsafe_allow_html=True)
+    if st.button("🎯 Open Study Intelligence", use_container_width=True):
+        st.session_state["nav_page"]="🎯 Study Intelligence"
+        st.rerun()
+
     st.markdown("### ◈ Command Deck")
     for row in range(0, len(commands), 4):
         cols = st.columns(4, gap="medium")
@@ -2224,6 +2249,117 @@ if page == "🏠 Hunter Dashboard":
             st.info("Penalty protocol is disabled.")
 
 # ---------- AI System Assistant ----------
+
+# ---------- Study Intelligence ----------
+elif page == "🎯 Study Intelligence":
+    render_module_hud(page)
+    today = date.today()
+    with db() as con:
+        today_q = con.execute("SELECT COUNT(*) AS n, COALESCE(SUM(completed),0) AS done, COALESCE(SUM(reward),0) AS xp FROM quests WHERE due=?", (today.isoformat(),)).fetchone()
+        week_focus = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)>=?", (current_week_start().isoformat(),)).fetchone()[0]
+        week_xp = con.execute("SELECT COALESCE(SUM(amount),0) FROM xp_log WHERE substr(happened_at,1,10)>=?", (current_week_start().isoformat(),)).fetchone()[0]
+        due_cards = con.execute("SELECT COUNT(*) FROM revision_cards WHERE due<=?", (today.isoformat(),)).fetchone()[0]
+        total_cards = con.execute("SELECT COUNT(*) FROM revision_cards").fetchone()[0]
+        subjects = con.execute("SELECT COALESCE(subject,'General') AS subject, COUNT(*) AS total, COALESCE(SUM(completed),0) AS done FROM quests GROUP BY COALESCE(subject,'General') ORDER BY total DESC LIMIT 8").fetchall()
+
+    total_q = int(today_q["n"] or 0)
+    done_q = int(today_q["done"] or 0)
+    completion = int(100 * done_q / max(1,total_q))
+    focus_week = int(week_focus or 0)
+    xp_week = int(week_xp or 0)
+    retention = int(100 * max(0,total_cards-due_cards) / max(1,total_cards))
+
+    st.markdown(
+        """<div class='intel-hero'>
+          <div class='intel-kicker'>Adaptive Learning Engine · Personal Command Center</div>
+          <div class='intel-title'>Study Intelligence</div>
+          <div class='intel-sub'>A decision layer above your existing quests, focus sessions, revision cards and XP. It tells you what to do next instead of only showing what you already did.</div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"""<div class='intel-grid'>
+          <div class='intel-card'><div class='intel-card-label'>TODAY COMPLETION</div><div class='intel-card-value'>{completion}%</div><div class='intel-card-note'>{done_q}/{total_q or 0} missions cleared</div></div>
+          <div class='intel-card'><div class='intel-card-label'>WEEKLY FOCUS</div><div class='intel-card-value'>{focus_week}m</div><div class='intel-card-note'>completed focus time</div></div>
+          <div class='intel-card'><div class='intel-card-label'>WEEKLY XP</div><div class='intel-card-value'>+{xp_week}</div><div class='intel-card-note'>earned this week</div></div>
+          <div class='intel-card'><div class='intel-card-label'>MEMORY HEALTH</div><div class='intel-card-value'>{retention}%</div><div class='intel-card-note'>{due_cards} cards need review</div></div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+    left,right = st.columns([1.3,.7], gap="large")
+    with left:
+        st.markdown("<div class='intel-panel'><div class='intel-panel-title'>◈ Weakness Radar</div><div class='muted'>Subjects with incomplete missions are prioritized first. Use this as a training queue, not a grade.</div>", unsafe_allow_html=True)
+        if subjects:
+            for r in subjects:
+                total=int(r["total"] or 0); done=int(r["done"] or 0)
+                score=int(100*done/max(1,total))
+                st.markdown(f"<div class='intel-topic'><div class='intel-topic-name'>{r['subject']}</div><div class='intel-topic-track'><div class='intel-topic-fill' style='width:{score}%'></div></div><div class='intel-topic-score'>{score}%</div></div>", unsafe_allow_html=True)
+        else:
+            st.info("Add quests with subjects to activate the weakness radar.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        st.markdown("<div class='intel-panel'><div class='intel-panel-title'>◉ Streak Protocol</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='intel-streak'>{profile['streak']} <span>DAY STREAK</span></div>", unsafe_allow_html=True)
+        if profile["streak"] >= 7:
+            msg="Elite consistency detected. Protect the streak with a short session even on busy days."
+        elif profile["streak"] >= 3:
+            msg="Momentum is building. A 25-minute focus session today keeps the chain alive."
+        else:
+            msg="Recovery mode: start small. One completed mission is enough to rebuild momentum."
+        st.markdown(f"<div class='intel-callout'>{msg}</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("### ◈ Adaptive Mission Plan")
+    plan=[]
+    if due_cards:
+        plan.append(("10 MIN","REVISION","Clear due flashcards before new content.","+review"))
+    if total_q-done_q>0:
+        plan.append(("25 MIN","QUEST","Clear the highest-priority unfinished mission.","+quest XP"))
+    if focus_week < 150:
+        plan.append(("25 MIN","FOCUS","Run one distraction-free Focus Room session.","+focus XP"))
+    if not plan:
+        plan=[("20 MIN","MASTERy","Create or review cards for your weakest subject.","+knowledge"),("25 MIN","FOCUS","Protect today's consistency streak.","+focus XP")]
+    plan=plan[:4]
+    items="".join(f"<div class='intel-plan-item'><div class='intel-plan-time'>{t}</div><div><div class='intel-plan-main'>{m}</div><div class='intel-plan-sub'>{s}</div></div><div class='intel-plan-xp'>{x}</div></div>" for t,m,s,x in plan)
+    st.markdown(f"<div class='intel-panel'><div class='intel-plan'>{items}</div></div>",unsafe_allow_html=True)
+
+    st.markdown("### ◈ AI Coach")
+    coach_prompt = f"""You are StudyBuddy's adaptive study coach. Give a concise actionable coaching brief for this student.
+Today: {today.isoformat()}
+Today quests: {done_q}/{total_q} completed.
+Weekly focus: {focus_week} minutes.
+Weekly XP: {xp_week}.
+Due revision cards: {due_cards}.
+Current streak: {profile['streak']} days.
+Weak subjects by quest completion: {', '.join(f"{r['subject']} {int(100*(r['done'] or 0)/max(1,r['total'] or 1))}%" for r in subjects) or 'no subject data'}.
+Return 3 bullets: (1) priority, (2) mistake/risk to avoid, (3) exact next action. No generic motivation."""
+    if st.button("✨ Generate my 30-second coaching brief", type="primary"):
+        if not has_api_key():
+            st.warning("Connect Gemma AI in the sidebar first.")
+        else:
+            with st.spinner("Gemma is analyzing your study telemetry..."):
+                try:
+                    advice=ask_ollama(coach_prompt,"You are an evidence-based study coach. Be concise, specific and practical.")
+                    st.markdown(f"<div class='intel-callout' style='white-space:pre-wrap'>{advice}</div>",unsafe_allow_html=True)
+                except RuntimeError as exc:
+                    st.error(str(exc))
+
+    st.markdown("### ◈ Recovery / Power Controls")
+    c1,c2,c3=st.columns(3)
+    with c1:
+        if st.button("⚡ 15-min Recovery",use_container_width=True):
+            st.session_state["nav_page"]="⏱️ Focus Room"; st.rerun()
+    with c2:
+        if st.button("🧠 Review Due Cards",use_container_width=True):
+            st.session_state["nav_page"]="🧠 Revision Lab"; st.rerun()
+    with c3:
+        if st.button("⚔️ Test in Dungeon",use_container_width=True):
+            st.session_state["nav_page"]="⚔️ Dungeon Battles"; st.rerun()
+
+
 elif page == "🤖 AI System Assistant":
     render_module_hud(page)
     model_name = get_selected_model()
