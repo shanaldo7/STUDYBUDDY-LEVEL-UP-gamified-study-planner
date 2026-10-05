@@ -2827,11 +2827,16 @@ elif page == "📅 Quest Schedule":
     with db() as con:
         month_quests = con.execute("SELECT * FROM quests WHERE due >= ? AND due <= ? ORDER BY due,id", (date(month_value.year, month_value.month, 1).isoformat(), date(month_value.year, month_value.month, calendar.monthrange(month_value.year, month_value.month)[1]).isoformat())).fetchall()
         all_quests = con.execute("SELECT * FROM quests ORDER BY due,id").fetchall()
+    indian_events = indian_calendar_events(month_value.year)
+    indian_by_day = {}
+    for event in indian_events:
+        indian_by_day.setdefault(event["date"].day, []).append(event)
+
     by_day = {}
     for quest in month_quests:
         by_day.setdefault(date.fromisoformat(quest["due"]).day, []).append(quest)
 
-    st.markdown("<div class='panel' style='padding:12px 18px;margin:8px 0 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px'><span style='color:#eaf5ff;font-weight:700'>◈ MISSION TIMELINE</span><span class='muted'>Choose a day to open its agenda · <span style='color:#67e8f9'>●</span> active · <span style='color:#86efac'>●</span> cleared</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='panel' style='padding:12px 18px;margin:8px 0 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px'><span style='color:#eaf5ff;font-weight:700'>◈ MISSION TIMELINE</span><span class='muted'>🔵 quests · 🪔 Indian festival · 🇮🇳 holiday · 🌺 West Bengal/Kolkata</span></div>", unsafe_allow_html=True)
     weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     head = st.columns(7)
     for col, label in zip(head, weekdays):
@@ -2849,9 +2854,12 @@ elif page == "📅 Quest Schedule":
                     done_count = sum(1 for item in quests_that_day if item["completed"])
                     open_count = len(quests_that_day) - done_count
                     selected = st.session_state.calendar_selected_day == day_date
+                    event_count = len(indian_by_day.get(day_num, []))
                     marker = (f"● {open_count} active" if open_count else "No quests")
                     if done_count:
                         marker += f"\n✓ {done_count} cleared"
+                    if event_count:
+                        marker += f"\n🪔 {event_count} event{'s' if event_count != 1 else ''}"
                     label = f"{day_num:02d}\n{marker}"
                     if st.button(label, key=f"cal_{month_value.year}_{month_value.month}_{day_num}", use_container_width=True, type="primary" if selected else "secondary"):
                         st.session_state.calendar_selected_day = day_date
@@ -2861,6 +2869,7 @@ elif page == "📅 Quest Schedule":
         selected_day = date(month_value.year, month_value.month, 1)
         st.session_state.calendar_selected_day = selected_day
     selected_quests = [q for q in all_quests if q["due"] == selected_day.isoformat()]
+    selected_events = [e for e in indian_events if e["date"] == selected_day]
     done_today = sum(1 for q in selected_quests if q["completed"])
     pending_today = len(selected_quests) - done_today
     planned_minutes = sum(q["minutes"] for q in selected_quests if not q["completed"])
@@ -2869,6 +2878,12 @@ elif page == "📅 Quest Schedule":
     m1.metric("Missions", len(selected_quests))
     m2.metric("Completed", done_today)
     m3.metric("Planned time left", f"{planned_minutes} min")
+    if selected_events:
+        st.markdown("<div class='panel' style='padding:16px 18px;margin:10px 0;border-color:rgba(251,191,36,.25);background:linear-gradient(135deg,rgba(251,191,36,.06),rgba(167,139,250,.05))'><div style='color:#fbbf24;font-weight:800;letter-spacing:1px;font-size:.72rem'>🇮🇳 INDIAN EVENT AGENDA</div></div>", unsafe_allow_html=True)
+        for event in selected_events:
+            badge = "HOLIDAY" if event["kind"] == "holiday" else "FESTIVAL"
+            st.markdown(f"<div class='quest' style='border-color:rgba(251,191,36,.22);'><div class='quest-title'>{event['title']}</div><div class='muted'>{badge} · {event['region']} · {event['date'].strftime('%A, %d %B %Y')}</div></div>", unsafe_allow_html=True)
+
     if selected_quests:
         for q in selected_quests:
             with st.container(border=True):
@@ -2907,6 +2922,12 @@ elif page == "📅 Quest Schedule":
                     st.success("Quest added to your calendar."); st.rerun()
 
     st.divider()
+    with st.expander("🇮🇳 Indian calendar sources & accuracy", expanded=False):
+        st.caption("Government holidays and festival observances are labeled separately. Festival dates can vary by region, tradition, moon sighting, or local authority.")
+        for source_name, source_url in INDIAN_CALENDAR_SOURCES.items():
+            st.markdown(f"- [{source_name}]({source_url})")
+        st.caption("West Bengal/Kolkata observances are highlighted separately, especially Durga Puja and related events.")
+
     st.subheader("Mission list")
     mode = st.selectbox("Show quests", ["Upcoming", "All", "Completed"], index=0)
     with db() as con:
