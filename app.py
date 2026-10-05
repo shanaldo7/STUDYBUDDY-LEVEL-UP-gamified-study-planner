@@ -18,7 +18,7 @@ from pypdf import PdfReader
 from anime_rpg import render as render_anime_rpg
 from ai_intelligence import render_ai_intelligence
 from ui_enhancements import inject_enhanced_ui, render_command_header, render_metrics, render_workflow, render_next_action
-from hunter_system import ensure_tables as ensure_hunter_tables, sync_level as sync_hunter_level, render_skill_tree, render_offline_indicator, render_offline_journal, focus_multiplier, combo_multiplier, revision_interval_multiplier, xp_multiplier, retry_call
+from hunter_system import ensure_tables as ensure_hunter_tables, sync_level as sync_hunter_level, render_skill_tree, render_offline_indicator, render_offline_journal, focus_multiplier, combo_multiplier, revision_interval_multiplier, xp_multiplier, retry_call, wallet, grant_currency
 from study_engine import (
     ensure_tables as ensure_adaptive_tables,
     render_exam_center,
@@ -1274,8 +1274,11 @@ with db() as con:
     con.execute("""CREATE TABLE IF NOT EXISTS dungeon_runs (
         id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT NOT NULL, difficulty TEXT NOT NULL,
         questions INTEGER NOT NULL, correct INTEGER NOT NULL, xp_earned INTEGER NOT NULL,
-        perfect INTEGER NOT NULL DEFAULT 0, played_at TEXT NOT NULL
+        perfect INTEGER NOT NULL DEFAULT 0, played_at TEXT NOT NULL, boss_rank TEXT
     )""")
+    _dungeon_columns = {row[1] for row in con.execute("PRAGMA table_info(dungeon_runs)").fetchall()}
+    if "boss_rank" not in _dungeon_columns:
+        con.execute("ALTER TABLE dungeon_runs ADD COLUMN boss_rank TEXT")
     con.execute("""CREATE TABLE IF NOT EXISTS achievements (
         id TEXT PRIMARY KEY, unlocked_at TEXT NOT NULL
     )""")
@@ -1457,6 +1460,7 @@ def complete_quest(qid):
     # Award XP only after the quest update transaction has committed.
     if q:
         award_xp(q["reward"], q["minutes"])
+        grant_currency(db, coins=max(5, q["reward"] // 5))
         return q["reward"]
     return 0
 
@@ -1800,6 +1804,7 @@ ACHIEVEMENTS = [
     {"id":"streak_7","icon":"🌙","name":"Seven-Day Shadow","desc":"Maintain a 7-day study streak.","kind":"streak","value":7},
     {"id":"focus_60","icon":"⏱️","name":"Focus Initiate","desc":"Complete 60 focused study minutes.","kind":"focus_minutes","value":60},
     {"id":"focus_300","icon":"🧿","name":"Deep Focus","desc":"Complete 300 focused study minutes.","kind":"focus_minutes","value":300},
+    {"id":"first_dungeon","icon":"🏰","name":"First Descent","desc":"Clear your first dungeon battle.","kind":"dungeon_runs","value":1},
     {"id":"dungeon_3","icon":"🏰","name":"Dungeon Runner","desc":"Complete 3 dungeon runs.","kind":"dungeon_runs","value":3},
     {"id":"perfect_dungeon","icon":"💀","name":"Perfect Clear","desc":"Finish a dungeon with every answer correct.","kind":"perfect_dungeon","value":1},
     {"id":"review_10","icon":"🧠","name":"Memory Awakening","desc":"Review 10 flashcards.","kind":"reviews","value":10},
@@ -1807,6 +1812,7 @@ ACHIEVEMENTS = [
     {"id":"answers_100","icon":"🎯","name":"Hundred Strikes","desc":"Answer 100 dungeon questions correctly.","kind":"correct_answers","value":100},
     {"id":"perfect_quiz","icon":"💎","name":"Flawless Hunter","desc":"Complete a perfect quiz.","kind":"perfect_dungeon","value":1},
     {"id":"focus_10","icon":"🔥","name":"Training Streak","desc":"Complete 10 focus sessions.","kind":"focus_sessions","value":10},
+    {"id":"s_rank_boss","icon":"💀","name":"S-Rank Breaker","desc":"Clear an S-Rank boss.","kind":"s_rank_boss","value":1},
 ]
 
 DUNGEON_BANK = {
@@ -1861,12 +1867,13 @@ def get_activity_metrics():
         perfects = con.execute("SELECT COUNT(*) FROM dungeon_runs WHERE perfect=1").fetchone()[0]
         correct_answers = con.execute("SELECT COALESCE(SUM(correct),0) FROM dungeon_runs").fetchone()[0]
         focus_sessions = con.execute("SELECT COUNT(*) FROM focus_sessions WHERE completed=1").fetchone()[0]
+        s_rank_boss = con.execute("SELECT COUNT(*) FROM dungeon_runs WHERE boss_rank='S-RANK'").fetchone()[0]
         reviews = con.execute("SELECT COUNT(*) FROM review_log").fetchone()[0]
         due_cards = con.execute("SELECT COUNT(*) FROM revision_cards WHERE due<=?", (date.today().isoformat(),)).fetchone()[0]
     return {"completed_quests":completed,"focus_minutes":int(focus_minutes or 0),"week_focus":int(week_focus or 0),
             "dungeon_runs":dungeon_runs,"dungeon_wins":dungeon_wins,"perfect_dungeon":perfects,
             "correct_answers":int(correct_answers or 0),"focus_sessions":int(focus_sessions or 0),
-            "reviews":reviews,"due_cards":due_cards}
+            "s_rank_boss":int(s_rank_boss or 0),"reviews":reviews,"due_cards":due_cards}
 
 
 def evaluate_achievements():
@@ -2016,10 +2023,10 @@ def generate_quiz_questions(subject, count, difficulty):
     return bank[:min(count, len(bank))], "Practice Bank"
 
 
-def save_dungeon_run(subject, difficulty, questions, correct, xp, perfect):
+def save_dungeon_run(subject, difficulty, questions, correct, xp, perfect, boss_rank=""):
     with db() as con:
-        con.execute("INSERT INTO dungeon_runs(subject,difficulty,questions,correct,xp_earned,perfect,played_at) VALUES(?,?,?,?,?,?,?)",
-                    (subject,difficulty,questions,correct,xp,int(perfect),_now()))
+        con.execute("INSERT INTO dungeon_runs(subject,difficulty,questions,correct,xp_earned,perfect,played_at,boss_rank) VALUES(?,?,?,?,?,?,?,?)",
+                    (subject,difficulty,questions,correct,xp,int(perfect),_now(),boss_rank))
     evaluate_achievements()
 
 
@@ -2085,7 +2092,8 @@ def finish_dungeon():
     boss_bonus = DUNGEON_BOSSES.get(run.get("boss_id", "igrit"), DUNGEON_BOSSES["igrit"])["bonus"]
     xp = base + difficulty_bonus + perfect_bonus + boss_bonus
     award_xp(xp, max(15, total * 5), source="dungeon", note=f"Boss defeated: {run['subject']} ({correct}/{total})")
-    save_dungeon_run(run["subject"], run["difficulty"], total, correct, xp, perfect)
+    save_dungeon_run(run["subject"], run["difficulty"], total, correct, xp, perfect, DUNGEON_BOSSES.get(run.get("boss_id", "igrit"), DUNGEON_BOSSES["igrit"])["rank"])
+    grant_currency(db, coins=25 + correct * 5, gems=1 if perfect else 0)
     run["finished"] = True
     run["xp_earned"] = xp
     run["perfect"] = perfect
@@ -2328,6 +2336,7 @@ if page == "🏠 Hunter Dashboard":
         today_done = con.execute("SELECT COUNT(*) FROM quests WHERE due=? AND completed=1", (date.today().isoformat(),)).fetchone()[0]
         today_focus = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)=?", (date.today().isoformat(),)).fetchone()[0]
         ach_count = con.execute("SELECT COUNT(*) FROM achievements").fetchone()[0]
+    hunter_wallet = wallet(db)
     power = profile["xp"] + profile["focus"]*10 + profile["discipline"]*10 + profile["knowledge"]*10 + profile["energy"]*5
 
     st.markdown(
@@ -2346,6 +2355,8 @@ if page == "🏠 Hunter Dashboard":
               <div class='video-hud-chip'>XP · {profile['xp']:,}</div>
               <div class='video-hud-chip'>POWER · {power:,}</div>
               <div class='video-hud-chip'>STREAK · {profile['streak']}</div>
+              <div class='video-hud-chip'>COINS · {hunter_wallet['coins']}</div>
+              <div class='video-hud-chip'>GEMS · {hunter_wallet['gems']}</div>
             </div>
           </div>
         </div>""",
