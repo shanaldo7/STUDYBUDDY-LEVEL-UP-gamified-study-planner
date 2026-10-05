@@ -15,6 +15,8 @@ from pathlib import Path
 import streamlit as st
 from pypdf import PdfReader
 
+from anime_rpg import render as render_anime_rpg
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -1617,6 +1619,7 @@ pages = [
     "📊 Hunter Report",
     "🤖 AI System Assistant",
     "👥 Shadow Army",
+    "👑 Anime RPG",
     "🤝 Guild Hall",
     "📚 Important PDFs",
     "🧬 Character & Power",
@@ -2900,3 +2903,4 @@ elif page == "⚙️ Settings":
 
 st.sidebar.divider()
 st.sidebar.caption("StudyBuddy Level Up · Local-first study tracker")
+\n\n# ---------- Anime RPG ----------\nelif page == "👑 Anime RPG":\n    render_anime_rpg(DB_PATH, profile, award_xp, ask_ollama)\n
