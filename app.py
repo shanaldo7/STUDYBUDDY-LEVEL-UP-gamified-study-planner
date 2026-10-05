@@ -1172,6 +1172,8 @@ def render_module_hud(current_page):
         "✨ Gemma Study Lab": (("GENERATE","Create content"),("REFINE","Tune output"),("DEPLOY","Send to study")),
         "🏆 Achievements": (("SCAN","Check milestones"),("UNLOCK","Reveal reward"),("EQUIP","Show badge")),
         "📊 Hunter Report": (("SCAN","Read telemetry"),("COMPARE","Find trends"),("EVOLVE","Choose next move")),
+        "🎯 Study Intelligence": (("SCAN","Read telemetry"),("PRIORITIZE","Find weakness"),("DEPLOY","Start next action")),
+        "🎓 Exam Command Center": (("MAP","Build syllabus"),("SCAN","Measure mastery"),("RAID","Attack weak topics")),
         "🤖 AI System Assistant": (("ASK","Send command"),("THINK","Process context"),("ACT","Execute advice")),
         "👥 Shadow Army": (("SUMMON","Select companion"),("TRAIN","Build power"),("FORMATION","Set squad")),
         "👑 Anime RPG": (("EXPLORE","Open roster"),("RAID","Fight boss"),("REWARD","Upgrade")),
