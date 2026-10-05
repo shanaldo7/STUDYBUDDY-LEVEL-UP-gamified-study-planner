@@ -2102,6 +2102,7 @@ if page == "🏠 Hunter Dashboard":
 
 # ---------- AI System Assistant ----------
 elif page == "🤖 AI System Assistant":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ SYSTEM CORE · AI ASSISTANT</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     model_name = get_selected_model()
     _ai_connected = has_api_key()
     st.markdown(
@@ -2238,6 +2239,7 @@ elif page == "🤖 AI System Assistant":
 
 # ---------- Gemma Study Lab ----------
 elif page == "✨ Gemma Study Lab":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ AI LAB · GEMMA INTELLIGENCE</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     _ai_ready = has_api_key()
     st.markdown(
         f"""<div class='hero'>
@@ -2341,6 +2343,7 @@ elif page == "✨ Gemma Study Lab":
 
 # ---------- Shadow Army ----------
 elif page == "👥 Shadow Army":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ SHADOW COMMAND · COMPANIONS</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     available = unlocked_shadows(profile["xp"])
     st.markdown(
         f"""<div class='hero'>
@@ -2438,6 +2441,7 @@ elif page == "👥 Shadow Army":
 
 # ---------- Schedule ----------
 elif page == "📅 Quest Schedule":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ MISSION CONTROL · QUEST DEPLOYMENT</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Mission Control</div>
@@ -2580,6 +2584,7 @@ elif page == "📅 Quest Schedule":
 
 # ---------- Dungeon Battles ----------
 elif page == "⚔️ Dungeon Battles":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ COMBAT INSTANCE · KNOWLEDGE RAID</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     video_uri = local_video_data_uri()
     if not st.session_state.get("dungeon_run"):
         st.markdown(
@@ -2777,6 +2782,7 @@ elif page == "⚔️ Dungeon Battles":
 
 # ---------- Focus Room ----------
 elif page == "⏱️ Focus Room":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ TRAINING CHAMBER · DEEP WORK</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Focus Chamber · Pomodoro Protocol</div>
@@ -2811,6 +2817,7 @@ elif page == "⏱️ Focus Room":
 
 # ---------- Revision Lab ----------
 elif page == "🧠 Revision Lab":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ MEMORY CORE · ACTIVE RECALL</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Memory Core · Spaced Repetition</div>
@@ -2882,6 +2889,7 @@ elif page == "🧠 Revision Lab":
 
 # ---------- Achievements ----------
 elif page == "🏆 Achievements":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ HUNTER ARCHIVE · MILESTONES</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Hunter Record · Collection System</div>
@@ -2907,6 +2915,7 @@ elif page == "🏆 Achievements":
 
 # ---------- Hunter Report ----------
 elif page == "📊 Hunter Report":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ SYSTEM ANALYTICS · PERFORMANCE</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Intelligence Report · Last 7 Days</div>
@@ -2959,6 +2968,7 @@ elif page == "📊 Hunter Report":
 
 # ---------- Guild Hall ----------
 elif page == "🤝 Guild Hall":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ GUILD NETWORK · STUDY PARTY</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     guild, members = guild_data()
     st.markdown(
         f"<div class='guild-banner'>"
@@ -3007,6 +3017,7 @@ elif page == "🤝 Guild Hall":
 
 # ---------- Important PDFs ----------
 elif page == "📚 Important PDFs":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ KNOWLEDGE ARCHIVE · DOCUMENTS</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Knowledge Archive</div>
@@ -3059,6 +3070,7 @@ elif page == "📚 Important PDFs":
 
 # ---------- Character / power ----------
 elif page == "🧬 Character & Power":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ AWAKENING CORE · CHARACTER</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Awakening & Growth</div>
@@ -3108,10 +3120,12 @@ elif page == "🧬 Character & Power":
 
 # ---------- Anime RPG ----------
 elif page == "👑 Anime RPG":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ RPG SYSTEM · PROGRESSION</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     render_anime_rpg(DB_PATH, profile, award_xp, ask_ollama)
 
 # ---------- Settings ----------
 elif page == "⚙️ Settings":
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ SYSTEM CONFIG · CONTROL PANEL</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>System Configuration</div>
