@@ -1992,167 +1992,113 @@ level = level_for(profile["xp"])
 
 # ---------- Dashboard ----------
 if page == "🏠 Hunter Dashboard":
+    metrics = get_activity_metrics()
+    with db() as con:
+        today_q = con.execute("SELECT COUNT(*) FROM quests WHERE due=? AND completed=0", (date.today().isoformat(),)).fetchone()[0]
+        today_done = con.execute("SELECT COUNT(*) FROM quests WHERE due=? AND completed=1", (date.today().isoformat(),)).fetchone()[0]
+        today_focus = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)=?", (date.today().isoformat(),)).fetchone()[0]
+        ach_count = con.execute("SELECT COUNT(*) FROM achievements").fetchone()[0]
+    power = profile["xp"] + profile["focus"]*10 + profile["discipline"]*10 + profile["knowledge"]*10 + profile["energy"]*5
+
     st.markdown(
-        f"""<div class='hero'>
-          <div class='hero-kicker'>System Online · Daily Hunter Status</div>
-          <div class='hero-title'>Welcome back, {profile['name']}.</div>
-          <p class='hero-sub'>Your study world is active. Clear missions, train your memory, defeat dungeons, and evolve.</p>
-          <div class='hero-meta'>
-            <span class='rank'>{rank}</span>
-            <span class='system-chip'>Level {level}</span>
-            <span class='system-chip purple'>Streak {profile['streak']} days</span>
+        f"""<div class='dashboard-core'>
+          <div class='core-kicker'>SYSTEM ONLINE · HUNTER COMMAND CENTER</div>
+          <div class='core-title'>Welcome back, {profile['name']}.</div>
+          <div class='core-sub'>Your study world is connected here. Launch missions, train memory, enter dungeons, or use Gemma to decide your next move.</div>
+          <div class='core-stat-row'>
+            <div class='core-stat'><b>{rank}</b><span>RANK</span></div>
+            <div class='core-stat'><b>{level}</b><span>LEVEL</span></div>
+            <div class='core-stat'><b>{profile['xp']:,}</b><span>XP</span></div>
+            <div class='core-stat'><b>{power:,}</b><span>POWER</span></div>
+            <div class='core-stat'><b>{profile['streak']}</b><span>STREAK</span></div>
           </div>
         </div>""",
         unsafe_allow_html=True,
     )
+
     if st.session_state.get("level_up_event"):
         ev = st.session_state.pop("level_up_event")
-        st.markdown(
-            f"<div class='level-up-banner'>"
-            f"<div class='level-up-kicker'>✦ Level Up Detected ✦</div>"
-            f"<div class='level-up-title'>Level {ev['old']} → Level {ev['new']}</div>"
-            f"<div class='muted'>Your training has made you stronger. New progression and companions may now be available.</div>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"<div class='level-up-banner'><div class='level-up-kicker'>✦ LEVEL UP DETECTED ✦</div><div class='level-up-title'>Level {ev['old']} → Level {ev['new']}</div><div class='muted'>Your training has made you stronger.</div></div>", unsafe_allow_html=True)
     if st.session_state.get("daily_bonus_event"):
         st.session_state.pop("daily_bonus_event")
-        st.markdown(
-            "<div class='reward-banner'>◈ Daily board cleared · +25 bonus XP · All systems thriving</div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<div class='reward-banner'>◈ DAILY BOARD CLEARED · +25 BONUS XP</div>", unsafe_allow_html=True)
     if st.session_state.get("achievement_event"):
         unlocked_events = st.session_state.pop("achievement_event")
         names = " · ".join(a["icon"] + " " + a["name"] for a in unlocked_events)
-        st.markdown(f"<div class='reward-banner'>🏆 Achievement unlocked · {names}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='reward-banner'>🏆 ACHIEVEMENT UNLOCKED · {names}</div>", unsafe_allow_html=True)
 
-    metrics = get_activity_metrics()
-    with db() as con:
-        today_q = con.execute("SELECT COUNT(*) FROM quests WHERE due=? AND completed=0", (date.today().isoformat(),)).fetchone()[0]
-        today_focus = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)=?", (date.today().isoformat(),)).fetchone()[0]
-        ach_count = con.execute("SELECT COUNT(*) FROM achievements").fetchone()[0]
+    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ LIVE COMMAND STATUS</div><div class='page-orbit-sub'>All systems synchronized · Local progression active</div></div>", unsafe_allow_html=True)
 
-    top_cols = st.columns(4)
-    for col, label, value in [
-        (top_cols[0], "Hunter Level", level),
-        (top_cols[1], "Total XP", profile["xp"]),
-        (top_cols[2], "Active Quests", today_q),
-        (top_cols[3], "Day Streak", profile["streak"]),
-    ]:
+    commands = [
+        ("⚔️","Dungeon Battles","Fight a knowledge boss.","⚔️ Dungeon Battles"),
+        ("📅","Quest Schedule","Deploy today's missions.","📅 Quest Schedule"),
+        ("⏱️","Focus Room","Start deep work.","⏱️ Focus Room"),
+        ("🧠","Revision Lab","Train recall.","🧠 Revision Lab"),
+        ("✨","Gemma Study Lab","Generate study content.","✨ Gemma Study Lab"),
+        ("🤖","AI Assistant","Ask the system.","🤖 AI System Assistant"),
+        ("👥","Shadow Army","Manage companions.","👥 Shadow Army"),
+        ("👑","Anime RPG","Open RPG progression.","👑 Anime RPG"),
+        ("🏆","Achievements","Track milestones.","🏆 Achievements"),
+        ("📊","Hunter Report","Analyze performance.","📊 Hunter Report"),
+        ("🤝","Guild Hall","Manage your study party.","🤝 Guild Hall"),
+        ("🧬","Character & Power","Upgrade your hunter.","🧬 Character & Power"),
+    ]
+    st.markdown("### ◈ Command Deck")
+    for row in range(0, len(commands), 4):
+        cols = st.columns(4, gap="medium")
+        for col, item in zip(cols, commands[row:row+4]):
+            icon, title, desc, target = item
+            with col:
+                st.markdown(f"<div class='hud-card'><div class='hud-icon'>{icon}</div><div class='hud-label'>{title}</div><div class='hud-desc'>{desc}</div></div>", unsafe_allow_html=True)
+                if st.button(f"OPEN · {title}", key=f"dash_nav_{row}_{title}", use_container_width=True):
+                    st.session_state["nav_page"] = target
+                    st.rerun()
+
+    st.markdown("### ◈ Hunter Core")
+    core_cols = st.columns(4)
+    core_data = [
+        ("XP PROGRESS", f"{xp_progress(profile['xp'])}%", f"Level {level} → next"),
+        ("TODAY'S QUESTS", f"{today_done}/{today_done+today_q}", f"{today_q} remaining"),
+        ("FOCUS TIME", f"{int(today_focus)}m", "Completed today"),
+        ("READY REVISION", str(metrics["due_cards"]), "Cards due now"),
+    ]
+    for col, item in zip(core_cols, core_data):
+        label, value, sub = item
         with col:
-            st.markdown(
-                f"<div class='stat'><div class='stat-label'>{label}</div><div class='stat-value'>{value}</div></div>",
-                unsafe_allow_html=True,
-            )
-    sec_cols = st.columns(4)
-    for col, label, value in [
-        (sec_cols[0], "Revision Ready", metrics["due_cards"]),
-        (sec_cols[1], "Focus Today", f"{int(today_focus)}m"),
-        (sec_cols[2], "Dungeon Runs", metrics["dungeon_runs"]),
-        (sec_cols[3], "Achievements", ach_count),
-    ]:
-        with col:
-            st.markdown(
-                f"<div class='stat'><div class='stat-label'>{label}</div><div class='stat-value'>{value}</div></div>",
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"<div class='stat'><div class='stat-label'>{label}</div><div class='stat-value'>{value}</div><div class='muted'>{sub}</div></div>", unsafe_allow_html=True)
 
-    left, right = st.columns([1.35, 1])
+    left, right = st.columns([1.35, 1], gap="large")
     with left:
-        with st.container():
-            st.markdown(
-                f"<div class='panel'>"
-                f"<div class='panel-title'>⚡ Experience Progress</div>"
-                f"<div style='display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px'>"
-                f"<b>Level {level}</b>"
-                f"<span class='muted'>{xp_progress(profile['xp'])}/100 XP to next level</span>"
-                f"</div>"
-                f"<div class='xp-track'><div class='xp-fill' style='width:{xp_progress(profile['xp'])}%'></div></div>"
-                f"<div class='muted' style='margin-top:6px'>Rank progression: {rank}</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-
-        with st.container():
-            st.markdown("<div class='panel'><div class='panel-title'>📜 Today's Quests</div>", unsafe_allow_html=True)
-            with db() as con:
-                rows = con.execute(
-                    "SELECT * FROM quests WHERE due=? ORDER BY completed, id",
-                    (date.today().isoformat(),),
-                ).fetchall()
-            if not rows:
-                st.info("No quests scheduled for today. Open Quest Schedule and add your first mission.")
-            for q in rows:
-                st.markdown(
-                    f"<div class='quest {'quest-done' if q['completed'] else ''}'>"
-                    f"<b>{'✓ ' if q['completed'] else '◈ '}{q['title']}</b>"
-                    f"<div class='muted'>{q['subject'] or 'General'} · {q['minutes']} min · {q['difficulty']} · +{q['reward']} XP</div>"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-                if not q["completed"]:
-                    if st.button(f"Complete · +{q['reward']} XP", key=f"dash_done_{q['id']}", use_container_width=False):
-                        complete_quest(q["id"])
-                        st.success(f"Quest cleared! +{q['reward']} XP")
-                        st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<div class='panel'><div class='panel-title'>⚡ EXPERIENCE CORE</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='display:flex;justify-content:space-between'><b>LEVEL {level}</b><span class='muted'>{xp_progress(profile['xp'])}/100 XP</span></div><div class='xp-track'><div class='xp-fill' style='width:{xp_progress(profile['xp'])}%'></div></div><div class='muted'>Rank progression · {rank}</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='panel'><div class='panel-title'>📜 ACTIVE MISSIONS</div>", unsafe_allow_html=True)
+        with db() as con:
+            rows = con.execute("SELECT * FROM quests WHERE due=? ORDER BY completed, id", (date.today().isoformat(),)).fetchall()
+        if not rows:
+            st.info("No quests scheduled for today. Open Quest Schedule to deploy missions.")
+        for q in rows:
+            st.markdown(f"<div class='quest {'quest-done' if q['completed'] else ''}'><b>{'✓ ' if q['completed'] else '◈ '}{q['title']}</b><div class='muted'>{q['subject'] or 'General'} · {q['minutes']} min · {q['difficulty']} · +{q['reward']} XP</div></div>", unsafe_allow_html=True)
+            if not q["completed"] and st.button(f"COMPLETE · +{q['reward']} XP", key=f"dash_done_{q['id']}", use_container_width=False):
+                complete_quest(q["id"])
+                st.success(f"Quest cleared! +{q['reward']} XP")
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
-        with st.container():
-            st.markdown("<div class='panel'><div class='panel-title'>🧬 Hunter Status</div>", unsafe_allow_html=True)
-            char_icons = {"Shadow Hunter": "🗡️", "Mage": "🔮", "Knight": "🛡️", "Archer": "🏹"}
-            power = (
-                profile["xp"]
-                + profile["focus"] * 10
-                + profile["discipline"] * 10
-                + profile["knowledge"] * 10
-                + profile["energy"] * 5
-            )
-            st.markdown(
-                f"<div style='font-family:Rajdhani,sans-serif;font-size:1.5rem;font-weight:700;color:#dceaff'>"
-                f"{char_icons.get(profile['character'], '⚔️')} {profile['character']}"
-                f"</div>"
-                f"<div class='muted' style='margin-top:2px'>Awakening profile · Power: {power:,}</div>",
-                unsafe_allow_html=True,
-            )
-            for label, key in [("Focus", "focus"), ("Discipline", "discipline"), ("Knowledge", "knowledge"), ("Energy", "energy")]:
-                val = profile[key]
-                st.markdown(
-                    f"<div style='display:flex;justify-content:space-between;align-items:baseline;margin-top:10px'>"
-                    f"<span class='muted'>{label}</span>"
-                    f"<b>{val}</b>"
-                    f"</div>"
-                    f"<div class='xp-track' style='height:7px'><div class='xp-fill' style='width:{min(val,99)}%'></div></div>",
-                    unsafe_allow_html=True,
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown(
-            "<div class='panel'>"
-            "<div class='panel-title'>🎯 System Tip</div>"
-            "<span class='muted'>Break large study goals into short quests. Consistency builds your streak and your stats.</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        next_action = (
-            "Start a 25-minute Focus session"
-            if today_focus == 0
-            else ("Review your ready flashcards" if metrics["due_cards"] else "Enter a Dungeon and test your mastery")
-        )
-        st.markdown(
-            f"<div class='system-next'>"
-            f"<span class='muted'>Next recommended action</span>"
-            f"<b>{next_action}</b>"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-        if profile.get("penalty_enabled", 1):
-            st.warning(
-                f"Penalty protocol active: overdue quests can cost {profile.get('penalty_amount', 10)} XP each "
-                f"(max 30 XP/day). Adjust in Settings."
-            )
+        st.markdown("<div class='panel'><div class='panel-title'>🧬 HUNTER STATUS</div>", unsafe_allow_html=True)
+        char_icons = {"Shadow Hunter":"🗡️","Mage":"🔮","Knight":"🛡️","Archer":"🏹"}
+        st.markdown(f"<div style='font-family:Rajdhani;font-size:1.55rem;font-weight:700'>{char_icons.get(profile['character'],'⚔️')} {profile['character']}</div><div class='muted'>Power {power:,} · {profile['title']}</div>", unsafe_allow_html=True)
+        for label, key in [("Focus","focus"),("Discipline","discipline"),("Knowledge","knowledge"),("Energy","energy")]:
+            val = profile[key]
+            st.markdown(f"<div style='display:flex;justify-content:space-between;margin-top:10px'><span class='muted'>{label}</span><b>{val}</b></div><div class='xp-track' style='height:7px'><div class='xp-fill' style='width:{min(val,99)}%'></div></div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        next_action = "Start a 25-minute Focus session" if today_focus == 0 else ("Review your ready flashcards" if metrics["due_cards"] else "Enter a Dungeon and test your mastery")
+        st.markdown(f"<div class='system-next'><span class='muted'>NEXT RECOMMENDED ACTION</span><b>{next_action}</b></div>", unsafe_allow_html=True)
+        st.markdown("<div class='panel'><div class='panel-title'>🧭 SYSTEM TIP</div><div class='muted'>Use the Command Deck as your control center. Every real study action contributes to hunter progression.</div></div>", unsafe_allow_html=True)
+        if profile.get("penalty_enabled",1):
+            st.warning(f"Penalty protocol active: overdue quests can cost {profile.get('penalty_amount',10)} XP each.")
         else:
-            st.info("Penalty protocol is disabled. Turn it on in Settings for missed-quest consequences.")
+            st.info("Penalty protocol is disabled.")
 
 # ---------- AI System Assistant ----------
 elif page == "🤖 AI System Assistant":
