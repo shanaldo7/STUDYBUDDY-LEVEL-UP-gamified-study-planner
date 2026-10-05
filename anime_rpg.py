@@ -169,6 +169,7 @@ def render(path,profile,award_xp,ask_ai_fn=None):
     @media(prefers-reduced-motion:reduce){.system-status:after{animation:none}.character-card{transition:none}.character-card:hover{transform:none}}
     """,unsafe_allow_html=True)
 
+    st.markdown("""<style>
     .rpg-hero{padding:24px;border-radius:22px;border:1px solid rgba(94,234,212,.28);
     background:linear-gradient(115deg,rgba(10,31,54,.9),rgba(36,18,65,.88));margin-bottom:18px}
     .rpg-kicker{color:#5eead4;font:700 .7rem Orbitron,sans-serif;letter-spacing:2px;text-transform:uppercase}
