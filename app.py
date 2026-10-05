@@ -1609,27 +1609,37 @@ def _friendly_ai_error(exc, model_name):
 
 
 def ask_ollama(prompt, system_prompt="You are the StudyBuddy System Assistant. Be concise, practical, encouraging, and focused on studying.", model_override=None):
-    """Call hosted Google Gemma through the current Google Gen AI SDK.
-
-    The function name is retained for call-site compatibility with earlier versions.
-    """
+    """Call hosted Google Gemma with a centralized quality generation profile."""
     model_name = model_override if model_override in SUPPORTED_GEMMA_MODELS else get_selected_model()
     if not _GENAI_AVAILABLE:
-        raise RuntimeError("The Google Gen AI SDK is not installed. Run `pip install -r requirements.txt` and restart the app.")
+        raise RuntimeError("The Google Gen AI SDK is not installed. Run pip install -r requirements.txt inside your venv.")
     client = get_configured_genai()
     if client is None:
         if not has_api_key():
             raise RuntimeError("StudyBuddy AI is not connected. Open the sidebar and paste your Google AI API key under Connect StudyBuddy AI.")
-        raise RuntimeError("Could not configure the Google AI client. Check your API key and internet connection.")
+        raise RuntimeError("Could not configure the Google Gen AI client. Check your API key and internet connection.")
+
+    quality_prompt = """
+You are operating inside StudyBuddy, an educational application.
+Follow the supplied task exactly. Optimize for correctness, clarity, useful structure and exam relevance.
+Use only facts supported by supplied source material when the task says it is source-grounded.
+Never invent student telemetry, document facts, citations, scores or deadlines.
+If information is missing or uncertain, state that clearly instead of guessing.
+For calculations, show the essential reasoning and verify the result.
+For generated questions, ensure there is exactly one defensible answer.
+For study advice, prefer active recall, deliberate practice and spaced repetition over passive rereading.
+Do not claim to have performed an app action unless the application explicitly performs it.
+""" + "\n\n" + system_prompt.strip()
+
     try:
         response = client.models.generate_content(
             model=model_name,
             contents=prompt,
             config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.35,
-                top_p=0.95,
-                max_output_tokens=1024,
+                system_instruction=quality_prompt,
+                temperature=0.2,
+                top_p=0.9,
+                max_output_tokens=2048,
             ),
         )
         result = _extract_text_from_response(response)
@@ -1640,7 +1650,6 @@ def ask_ollama(prompt, system_prompt="You are the StudyBuddy System Assistant. B
         raise
     except Exception as exc:
         raise _friendly_ai_error(exc, model_name)
-
 
 
 # Cinematic Solo Leveling shadow roster for Dungeon Battles.
