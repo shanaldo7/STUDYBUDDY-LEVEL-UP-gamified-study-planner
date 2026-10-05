@@ -453,6 +453,25 @@ div.stButton > button[kind="primary"]:hover,
 
 
 
+
+/* ── Global 3D System UI ─────────────────────────────────────── */
+.stApp::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.16;background-image:linear-gradient(rgba(103,232,249,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.035) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,black,transparent 88%);}
+.block-container{position:relative;z-index:1;}
+.hero,.guild-banner{transform-style:preserve-3d;position:relative;box-shadow:0 22px 65px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.06);}
+.hero::after,.guild-banner::after{content:"";position:absolute;inset:1px;border-radius:inherit;pointer-events:none;background:linear-gradient(115deg,rgba(255,255,255,.06),transparent 22%,transparent 72%,rgba(167,139,250,.06));}
+.hero:hover,.guild-banner:hover{transform:perspective(1200px) rotateX(.7deg) translateY(-2px);border-color:rgba(103,232,249,.45);}
+.panel,.stat,.quest,.achievement-card,.system-panel,.review-card,.timer-shell,[data-testid="stMetric"]{transform-style:preserve-3d;}
+.panel:hover,.stat:hover,.quest:hover,.achievement-card:hover,.system-panel:hover,.review-card:hover,.timer-shell:hover,[data-testid="stMetric"]:hover{transform:perspective(900px) rotateX(.8deg) translateY(-3px);box-shadow:0 16px 38px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.07);}
+.hud-card{position:relative;overflow:hidden;min-height:145px;padding:18px;border:1px solid rgba(126,177,235,.18);border-radius:18px;background:linear-gradient(145deg,rgba(18,31,57,.84),rgba(12,16,31,.82));box-shadow:0 14px 36px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.05);transition:transform .22s,border-color .22s,box-shadow .22s;}
+.hud-card::before{content:"";position:absolute;width:130px;height:130px;right:-45px;top:-50px;border-radius:50%;background:radial-gradient(circle,rgba(103,232,249,.16),transparent 68%);}
+.hud-card:hover{transform:perspective(800px) rotateY(-2deg) translateY(-5px);border-color:rgba(103,232,249,.42);box-shadow:0 22px 48px rgba(0,0,0,.42),0 0 24px rgba(103,232,249,.07);}
+.hud-icon{font-size:1.65rem;filter:drop-shadow(0 0 10px rgba(167,139,250,.35));}.hud-label{margin-top:9px;color:#fff;font:800 .85rem Orbitron,sans-serif}.hud-desc{color:#7f91ac;font-size:.69rem;margin-top:5px;line-height:1.35;}
+.dashboard-core{position:relative;overflow:hidden;min-height:255px;padding:25px;border-radius:26px;border:1px solid rgba(103,232,249,.25);background:radial-gradient(circle at 78% 30%,rgba(139,92,246,.25),transparent 28%),radial-gradient(circle at 12% 75%,rgba(34,211,238,.13),transparent 30%),linear-gradient(135deg,rgba(9,19,37,.97),rgba(27,14,49,.95));box-shadow:0 30px 85px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.07);}
+.dashboard-core::before{content:"";position:absolute;width:270px;height:270px;right:-85px;top:-90px;border:1px solid rgba(167,139,250,.18);border-radius:50%;box-shadow:0 0 0 30px rgba(167,139,250,.025),0 0 0 60px rgba(167,139,250,.018);}
+.core-kicker{color:#67e8f9;font:800 .62rem Orbitron,sans-serif;letter-spacing:2px}.core-title{color:#fff;font:800 clamp(1.6rem,3.4vw,2.7rem) Orbitron,sans-serif;margin:5px 0}.core-sub{color:#91a5c0;max-width:650px;font-size:.82rem}.core-stat-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px}.core-stat{padding:8px 12px;border-radius:11px;border:1px solid rgba(255,255,255,.09);background:rgba(4,9,20,.45)}.core-stat b{color:#fff;font:700 .95rem Orbitron,sans-serif}.core-stat span{color:#71839f;font-size:.61rem;text-transform:uppercase;margin-left:5px}
+.page-orbit{position:relative;overflow:hidden;margin:0 0 16px;padding:10px 14px;border:1px solid rgba(126,177,235,.14);border-radius:14px;background:linear-gradient(90deg,rgba(8,15,30,.72),rgba(23,15,42,.62));display:flex;justify-content:space-between;align-items:center;gap:10px;box-shadow:0 8px 28px rgba(0,0,0,.22)}.page-orbit-main{color:#dceaff;font:700 .68rem Orbitron,sans-serif;letter-spacing:1.2px;text-transform:uppercase}.page-orbit-sub{color:#71839f;font-size:.68rem}
+@media (prefers-reduced-motion:reduce){.hero:hover,.guild-banner:hover,.panel:hover,.stat:hover,.quest:hover,.achievement-card:hover,.system-panel:hover,.review-card:hover,.timer-shell:hover,[data-testid="stMetric"]:hover,.hud-card:hover{transform:none}}
+
 /* ── Interactive 3D card carousel / cinematic gate ───────────── */
 .shadow-carousel-wrap {
   position:relative; overflow:hidden; padding:26px 18px 20px;
@@ -1839,7 +1858,11 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.markdown("<div class='sidebar-section-label'>Navigation</div>", unsafe_allow_html=True)
-    page = st.radio("Navigation", pages, label_visibility="collapsed")
+    _nav_target = st.session_state.get("nav_page", pages[0])
+    if _nav_target not in pages:
+        _nav_target = pages[0]
+    page = st.radio("Navigation", pages, index=pages.index(_nav_target), label_visibility="collapsed")
+    st.session_state["nav_page"] = page
     st.divider()
 
     st.markdown("<div class='sidebar-section-label'>Gemma AI · Google Cloud</div>", unsafe_allow_html=True)
