@@ -20,6 +20,7 @@ from ai_intelligence import render_ai_intelligence
 from progress_calendar import render_progress_calendar
 from ui_enhancements import inject_enhanced_ui, render_command_header, render_metrics, render_workflow, render_next_action
 from hunter_system import ensure_tables as ensure_hunter_tables, sync_level as sync_hunter_level, render_skill_tree, render_offline_indicator, render_offline_journal, focus_multiplier, combo_multiplier, revision_interval_multiplier, xp_multiplier, retry_call, wallet, grant_currency
+from premium_hunter import inject_premium_css, render_dungeon_map, render_system_guide, render_voice_study_mode, render_offline_console, render_sound_settings
 from study_engine import (
     ensure_tables as ensure_adaptive_tables,
     render_exam_center,
@@ -56,6 +57,7 @@ MOTION_CSS = (APP_DIR / "assets" / "motion.css").read_text(encoding="utf-8") if 
 MOTION_JS = (APP_DIR / "assets" / "motion.js").read_text(encoding="utf-8") if (APP_DIR / "assets" / "motion.js").exists() else ""
 
 inject_enhanced_ui()
+inject_premium_css()
 
 st.set_page_config(page_title="StudyBuddy | Level Up", page_icon="⚔️", layout="wide")
 
@@ -2153,6 +2155,8 @@ pages = [
     "🏠 Hunter Dashboard",
     "📅 Quest Schedule",
     "⚔️ Dungeon Battles",
+    "🗺️ Dungeon Map",
+    "🎙️ Voice Study Mode",
     "⏱️ Focus Room",
     "🧠 Revision Lab",
     "✨ Gemma Study Lab",
@@ -2185,6 +2189,7 @@ with st.sidebar:
     page = st.radio("Navigation", pages, index=pages.index(_nav_target), label_visibility="collapsed")
     st.session_state["nav_page"] = page
     render_offline_indicator()
+    render_offline_console()
     render_offline_journal()
     st.divider()
 
@@ -3260,6 +3265,17 @@ elif page == "⚔️ Dungeon Battles":
                         if st.button("🏆 CLAIM VICTORY REWARDS", type="primary", use_container_width=True):
                             finish_dungeon()
                             st.rerun()
+
+# ---------- Premium interactive layers ----------
+elif page == "🗺️ Dungeon Map":
+    render_module_hud(page)
+    render_dungeon_map(db, lambda target: st.session_state.update(nav_page=target))
+
+elif page == "🎙️ Voice Study Mode":
+    render_module_hud(page)
+    st.markdown("<div class='ph-shell'><div class='ph-kicker'>Hands-Free Training</div><div class='ph-title'>Voice Study Mode</div><div class='ph-copy'>Browser-native speech controls with visible transcript confirmation and keyboard/button fallback.</div></div>", unsafe_allow_html=True)
+    render_voice_study_mode()
+    render_sound_settings()
 
 # ---------- Focus Room ----------
 elif page == "⏱️ Focus Room":
