@@ -521,6 +521,10 @@ div.stButton > button[kind="primary"]:hover,
   transform-style:preserve-3d; transition:transform .38s ease,opacity .3s ease,filter .3s ease,box-shadow .3s ease;
 }
 .shadow-card img { width:100%; height:100%; object-fit:cover; object-position:center top; display:block; }
+.boss-card-art{position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,var(--boss-glow),transparent 36%),linear-gradient(155deg,#0b1222,#070713 58%,#17102b);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.boss-card-aura{position:absolute;width:180px;height:180px;border-radius:50%;background:var(--boss-glow);opacity:.18;filter:blur(18px);box-shadow:0 0 70px var(--boss-glow)}
+.boss-card-glyph{position:relative;color:#f8fbff;font:800 7rem Orbitron,sans-serif;text-shadow:0 0 18px var(--boss-glow),0 0 45px var(--boss-glow);filter:drop-shadow(0 16px 20px rgba(0,0,0,.65))}
+.boss-card-rune{position:absolute;top:18px;right:18px;padding:6px 9px;border:1px solid var(--boss-glow);border-radius:999px;color:#dbeafe;background:rgba(3,8,20,.65);font:800 .55rem Orbitron,sans-serif;letter-spacing:1.4px}
 .shadow-card::after {
   content:""; position:absolute; inset:0;
   background:linear-gradient(180deg,rgba(4,3,12,.04) 38%,rgba(5,4,15,.97) 100%);
@@ -1756,15 +1760,15 @@ DUNGEON_BOSSES = {
         "attack":"Glacial Guard", "bonus":18, "rank":"A-RANK"
     },
     "kiba": {
-        "name":"Kiba", "element":"SHADOW", "color":"#f43f5e",
+        "name":"Void Shaman", "element":"ARCANE", "color":"#f43f5e",
         "description":"The High Orc Shaman. A tactical trial for deeper subject mastery.",
         "image":"",
         "attack":"Mana Break", "bonus":22, "rank":"A-RANK"
     },
     "kaisel": {
-        "name":"Kaisel", "element":"SHADOW", "color":"#06b6d4",
+        "name":"Sky Reaver", "element":"STORM", "color":"#06b6d4",
         "description":"The Winged Mount. A high-mobility challenge for fast recall.",
-        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/kaisel.jpg",
+        "image":"",
         "attack":"Sky Rend", "bonus":24, "rank":"S-RANK"
     },
 }
@@ -3095,7 +3099,7 @@ elif page == "⚔️ Dungeon Battles":
                 unsafe_allow_html=True,
             )
         st.markdown(
-            "<div class='shadow-carousel-title'><div class='eyebrow'>SHADOW ARMY · SELECT YOUR CHAMPION</div><h2>Choose Your Boss</h2><p>Swipe the roster with the controls below. The center card is the active shadow.</p></div>",
+            "<div class='shadow-carousel-title'><div class='eyebrow'>DUNGEON ROSTER · SELECT YOUR CHAMPION</div><h2>Choose Your Boss</h2><p>Use the controls below to rotate the roster. The center card is the active boss.</p></div>",
             unsafe_allow_html=True,
         )
 
@@ -3106,27 +3110,28 @@ elif page == "⚔️ Dungeon Battles":
         for col, boss_id, cls in zip(cols, cards, card_classes):
             boss = DUNGEON_BOSSES[boss_id]
             with col:
-                art = load_shadow_image(boss["image"])
-                if art:
-                    b64 = base64.b64encode(art).decode("ascii")
-                    st.markdown(
-                        f"""<div class='shadow-stage' style='min-height:350px'>
-                          <div class='shadow-card {cls}'>
-                            <img src='data:image/jpeg;base64,{b64}' alt='{boss['name']}'>
-                            <div class='shadow-card-glow'></div>
-                            <div class='shadow-card-copy'>
-                              <div class='shadow-card-rank'>{boss['rank']} · {boss['element']}</div>
-                              <div class='shadow-card-name'>{boss['name']}</div>
-                              <div class='shadow-card-meta'>+{boss['bonus']} XP · {boss['attack']}</div>
-                            </div>
-                          </div>
-                        </div>""",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(f"<div class='shadow-card {cls}'><div style='height:100%;display:flex;align-items:center;justify-content:center;color:#9fb2cb'>{boss['name']}</div></div>", unsafe_allow_html=True)
+                glyphs = {"igrit":"☄","beru":"♛","tank":"❄","kiba":"◈","kaisel":"⚡"}
+                glyph = glyphs.get(boss_id, "◆")
+                st.markdown(
+                    f"""<div class='shadow-stage' style='min-height:350px'>
+                      <div class='shadow-card {cls}' style='--boss-glow:{boss['color']}'>
+                        <div class='boss-card-art' style='--boss-glow:{boss['color']}'>
+                          <div class='boss-card-aura'></div>
+                          <div class='boss-card-glyph'>{glyph}</div>
+                          <div class='boss-card-rune'>{boss['element']}</div>
+                        </div>
+                        <div class='shadow-card-glow'></div>
+                        <div class='shadow-card-copy'>
+                          <div class='shadow-card-rank'>{boss['rank']} · {boss['element']}</div>
+                          <div class='shadow-card-name'>{boss['name']}</div>
+                          <div class='shadow-card-meta'>+{boss['bonus']} XP · {boss['attack']}</div>
+                        </div>
+                      </div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
                 if cls == "center":
-                    if st.button("✓ SELECTED SHADOW", key="select_active_shadow", use_container_width=True, type="primary"):
+                    if st.button("✓ SELECTED BOSS", key="select_active_shadow", use_container_width=True, type="primary"):
                         pass
 
         nav1,nav2,nav3 = st.columns([1,1,1])
@@ -3136,7 +3141,7 @@ elif page == "⚔️ Dungeon Battles":
                 st.rerun()
         with nav2:
             st.markdown(
-                "<div class='carousel-nav'><span class='carousel-dot active'></span><span class='carousel-dot'></span><span class='carousel-dot'></span><span class='carousel-dot'></span><span class='carousel-dot'></span></div><div class='carousel-hint'>Interactive shadow roster</div>",
+                "<div class='carousel-nav'><span class='carousel-dot active'></span><span class='carousel-dot'></span><span class='carousel-dot'></span><span class='carousel-dot'></span><span class='carousel-dot'></span></div><div class='carousel-hint'>Interactive dungeon roster</div>",
                 unsafe_allow_html=True,
             )
         with nav3:
