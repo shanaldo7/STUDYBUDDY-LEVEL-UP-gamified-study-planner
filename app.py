@@ -1095,6 +1095,14 @@ input:focus, textarea:focus,
 @media(max-width:800px){.video-glass{width:auto;margin:14px;padding:20px}.video-command-hero{min-height:430px}.motion-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.video-scanline{animation:none}.video-glass:hover,.motion-tile:hover{transform:none}}
 
+
+.module-motion-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:11px}
+.module-motion{padding:8px 10px;border:1px solid rgba(126,177,235,.11);border-radius:11px;background:rgba(3,8,19,.36);transition:transform .22s,border-color .22s,background .22s}
+.module-motion:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.34);background:rgba(20,35,58,.52)}
+.module-motion b{display:block;color:#dbeafe;font:700 .59rem Orbitron,sans-serif;letter-spacing:.6px}
+.module-motion span{display:block;color:#667992;font-size:.61rem;margin-top:2px}
+@media(max-width:650px){.module-motion-row{grid-template-columns:1fr}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -1122,8 +1130,26 @@ def render_module_hud(current_page):
         "⚙️ Settings": ("SYSTEM CONFIG · CONTROL PANEL","Tune your StudyBuddy system."),
     }
     title, subtitle = meta.get(current_page, ("SYSTEM MODULE · STUDYBUDDY","Interactive study system"))
+    interaction_map = {
+        "📅 Quest Schedule": (("DEPLOY","Create a mission"),("PRIORITIZE","Sort the board"),("CLEAR","Claim XP")),
+        "⚔️ Dungeon Battles": (("LOCK TARGET","Choose shadow"),("STRIKE","Answer to damage"),("CLAIM","Collect rewards")),
+        "⏱️ Focus Room": (("CHARGE","Start focus"),("COMBO","Protect streak"),("SYNC","Convert time to XP")),
+        "🧠 Revision Lab": (("FLIP","Reveal recall"),("RATE","Grade memory"),("CHAIN","Continue queue")),
+        "✨ Gemma Study Lab": (("GENERATE","Create content"),("REFINE","Tune output"),("DEPLOY","Send to study")),
+        "🏆 Achievements": (("SCAN","Check milestones"),("UNLOCK","Reveal reward"),("EQUIP","Show badge")),
+        "📊 Hunter Report": (("SCAN","Read telemetry"),("COMPARE","Find trends"),("EVOLVE","Choose next move")),
+        "🤖 AI System Assistant": (("ASK","Send command"),("THINK","Process context"),("ACT","Execute advice")),
+        "👥 Shadow Army": (("SUMMON","Select companion"),("TRAIN","Build power"),("FORMATION","Set squad")),
+        "👑 Anime RPG": (("EXPLORE","Open roster"),("RAID","Fight boss"),("REWARD","Upgrade")),
+        "🤝 Guild Hall": (("CHECK IN","Update activity"),("PARTY","Manage hunters"),("GOAL","Track weekly XP")),
+        "📚 Important PDFs": (("ARCHIVE","Add document"),("SCAN","Extract knowledge"),("REVIEW","Study source")),
+        "🧬 Character & Power": (("AWAKEN","Choose attribute"),("UPGRADE","Spend progression"),("EQUIP","Set identity")),
+        "⚙️ Settings": (("CONFIGURE","Tune system"),("SECURE","Manage AI"),("SAVE","Apply changes")),
+    }
+    interactions = interaction_map.get(current_page, (("OPEN","Explore module"),("ACT","Use controls"),("SYNC","Save progress")))
+    cards = "".join(f"<div class='module-motion'><b>{a}</b><span>{b}</span></div>" for a,b in interactions)
     st.markdown(
-        f"<div class='module-hud'><span class='module-hud-live'>● LIVE</span><div class='module-hud-main'>◈ {title}</div><div class='module-hud-sub'>{subtitle}</div></div>",
+        f"<div class='module-hud'><span class='module-hud-live'>● LIVE</span><div class='module-hud-main'>◈ {title}</div><div class='module-hud-sub'>{subtitle}</div><div class='module-motion-row'>{cards}</div></div>",
         unsafe_allow_html=True,
     )
 
