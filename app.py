@@ -119,7 +119,7 @@ hr { border-color: var(--line); margin: 1.2rem 0; }
   border-right: 1px solid var(--line);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  box-shadow: 14px 0 40px rgba(0,0,0,.35);
+  box-shadow: 8px 0 24px rgba(0,0,0,.22);
 }
 [data-testid="stSidebar"] .block-container {
   padding-top: 1.2rem;
@@ -149,14 +149,14 @@ hr { border-color: var(--line); margin: 1.2rem 0; }
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] > div { gap: 2px; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label {
-  padding: 8px 11px;
+  padding: 7px 10px;
   margin: 1px 0;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   transition: all .18s ease-out;
   font-size: 0.92rem;
   font-weight: 500;
-  min-height: 38px;
+  min-height: 35px;
   align-items: center;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
