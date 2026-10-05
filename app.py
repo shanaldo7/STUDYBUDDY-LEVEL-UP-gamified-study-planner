@@ -1166,6 +1166,7 @@ def render_module_hud(current_page):
         "🏆 Achievements": ("HUNTER ARCHIVE · MILESTONES","Track unlocks, rewards and progression."),
         "📊 Hunter Report": ("SYSTEM ANALYTICS · PERFORMANCE","Read your study telemetry and progression."),
         "🎯 Study Intelligence": ("ADAPTIVE CORE · PERSONALIZED LEARNING","Turn your activity into a daily plan, weak-topic radar and AI coaching."),
+        "🌳 Skill Tree": ("AWAKENING TREE · STUDY ABILITIES","Spend earned skill points on permanent study abilities."),
         "🎓 Exam Command Center": ("EXAM PROTOCOL · TACTICAL PREPARATION","Map your syllabus, measure mastery, identify risk and deploy an adaptive study plan."),
         "🤖 AI System Assistant": ("SYSTEM CORE · AI ASSISTANT","Use the assistant as your tactical study operator."),
         "👥 Shadow Army": ("SHADOW COMMAND · COMPANIONS","Manage your companions and squad progression."),
@@ -1186,6 +1187,7 @@ def render_module_hud(current_page):
         "🏆 Achievements": (("SCAN","Check milestones"),("UNLOCK","Reveal reward"),("EQUIP","Show badge")),
         "📊 Hunter Report": (("SCAN","Read telemetry"),("COMPARE","Find trends"),("EVOLVE","Choose next move")),
         "🎯 Study Intelligence": (("SCAN","Read telemetry"),("PRIORITIZE","Find weakness"),("DEPLOY","Start next action")),
+        "🌳 Skill Tree": (("EARN","Gain points"),("UNLOCK","Awaken skill"),("EVOLVE","Improve study")),
         "🎓 Exam Command Center": (("MAP","Build syllabus"),("SCAN","Measure mastery"),("RAID","Attack weak topics")),
         "🤖 AI System Assistant": (("ASK","Send command"),("THINK","Process context"),("ACT","Execute advice")),
         "👥 Shadow Army": (("SUMMON","Select companion"),("TRAIN","Build power"),("FORMATION","Set squad")),
@@ -2395,6 +2397,7 @@ if page == "🏠 Hunter Dashboard":
         ("👑","Anime RPG","Open RPG progression.","👑 Anime RPG"),
         ("🏆","Achievements","Track milestones.","🏆 Achievements"),
         ("📊","Hunter Report","Analyze performance.","📊 Hunter Report"),
+        ("🌳","Skill Tree","Unlock study abilities.","🌳 Skill Tree"),
         ("🤝","Guild Hall","Manage your study party.","🤝 Guild Hall"),
         ("🧬","Character & Power","Upgrade your hunter.","🧬 Character & Power"),
     ]
