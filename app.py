@@ -3282,7 +3282,8 @@ elif page == "⏱️ Focus Room":
             _complete_ready = _remaining <= 0 and not _training.get("paused_at")
             _mm, _ss = divmod(_remaining, 60)
             _status = "PAUSED" if _training.get("paused_at") else ("COMPLETE" if _complete_ready else "TRAINING")
-            st.markdown(f"<div class='system-panel'><div class='focus-badge'>{_status}</div><div style='font:800 24px Orbitron;color:white;margin-top:8px'>{'COMPLETE' if _complete_ready else f'{_mm:02d}:{_ss:02d} remaining'}</div><div class='muted'>Server-gated completion · XP is awarded only after the full active duration.</div></div>", unsafe_allow_html=True)
+            _time_label = "COMPLETE" if _complete_ready else f"{_mm:02d}:{_ss:02d} remaining"
+            st.markdown(f"<div class='system-panel'><div class='focus-badge'>{_status}</div><div style='font:800 24px Orbitron;color:white;margin-top:8px'>{_time_label}</div><div class='muted'>Server-gated completion · XP is awarded only after the full active duration.</div></div>", unsafe_allow_html=True)
             if _complete_ready:
                 if st.button("🏆 CLAIM COMPLETED SESSION", type="primary", use_container_width=True):
                     reward = log_focus_session(_training["minutes"], _training["mode"], _training["completion_id"])
