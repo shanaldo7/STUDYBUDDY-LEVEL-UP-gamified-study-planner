@@ -452,6 +452,102 @@ div.stButton > button[kind="primary"]:hover,
 }
 
 
+
+/* ── Interactive 3D card carousel / cinematic gate ───────────── */
+.shadow-carousel-wrap {
+  position:relative; overflow:hidden; padding:26px 18px 20px;
+  border-radius:26px; border:1px solid rgba(168,139,250,.20);
+  background:
+    radial-gradient(circle at 50% 30%,rgba(124,58,237,.16),transparent 34%),
+    linear-gradient(145deg,rgba(12,9,25,.98),rgba(22,14,43,.96));
+  box-shadow:0 28px 80px rgba(0,0,0,.48);
+}
+.shadow-carousel-bg {
+  position:absolute; inset:0; overflow:hidden; pointer-events:none;
+  background:radial-gradient(circle at 50% 90%,rgba(34,211,238,.08),transparent 35%);
+}
+.shadow-carousel-title { position:relative; text-align:center; margin-bottom:18px; }
+.shadow-carousel-title .eyebrow {
+  color:#c4b5fd; font:800 .62rem Orbitron,sans-serif; letter-spacing:2.2px;
+}
+.shadow-carousel-title h2 {
+  color:#fff; font:800 clamp(1.45rem,3vw,2.2rem) Orbitron,sans-serif;
+  margin:5px 0 2px;
+}
+.shadow-carousel-title p { color:#8795ad; margin:0; font-size:.78rem; }
+.shadow-stage {
+  position:relative; min-height:390px; display:flex; align-items:center;
+  justify-content:center; perspective:1100px; margin:0 -4px;
+}
+.shadow-card {
+  position:relative; overflow:hidden; width:245px; height:350px;
+  border-radius:22px; border:1px solid rgba(255,255,255,.11);
+  background:#080713; box-shadow:0 20px 45px rgba(0,0,0,.48);
+  transform-style:preserve-3d; transition:transform .38s ease,opacity .3s ease,filter .3s ease,box-shadow .3s ease;
+}
+.shadow-card img { width:100%; height:100%; object-fit:cover; object-position:center top; display:block; }
+.shadow-card::after {
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg,rgba(4,3,12,.04) 38%,rgba(5,4,15,.97) 100%);
+}
+.shadow-card.center {
+  width:285px; height:385px; z-index:3;
+  border-color:rgba(196,181,253,.62);
+  box-shadow:0 0 0 1px rgba(167,139,250,.18),0 30px 65px rgba(0,0,0,.60),0 0 38px rgba(139,92,246,.16);
+  transform:translateZ(50px) scale(1.02);
+}
+.shadow-card.left {
+  margin-right:-48px; z-index:1; transform:rotateY(17deg) translateX(8px) scale(.90);
+  filter:saturate(.72) brightness(.72);
+}
+.shadow-card.right {
+  margin-left:-48px; z-index:1; transform:rotateY(-17deg) translateX(-8px) scale(.90);
+  filter:saturate(.72) brightness(.72);
+}
+.shadow-card-copy {
+  position:absolute; left:18px; right:18px; bottom:17px; z-index:2;
+}
+.shadow-card-rank {
+  color:#c4b5fd; font:800 .58rem Orbitron,sans-serif; letter-spacing:1.5px;
+}
+.shadow-card-name {
+  color:#fff; font:800 1.45rem Orbitron,sans-serif;
+  text-shadow:0 3px 16px rgba(0,0,0,.7); margin-top:4px;
+}
+.shadow-card-meta {
+  color:#a9b7cc; font-size:.67rem; text-transform:uppercase;
+  letter-spacing:1.2px; margin-top:4px;
+}
+.shadow-card-glow {
+  position:absolute; inset:auto 12% 8% 12%; height:30px; z-index:1;
+  background:rgba(139,92,246,.34); filter:blur(22px);
+}
+.carousel-nav {
+  display:flex; justify-content:center; align-items:center; gap:12px; margin-top:12px;
+}
+.carousel-dot {
+  width:7px; height:7px; border-radius:50%; background:#48536a;
+  display:inline-block; transition:all .2s;
+}
+.carousel-dot.active { width:24px; border-radius:99px; background:#c4b5fd; box-shadow:0 0 12px rgba(196,181,253,.45); }
+.carousel-hint { text-align:center; color:#65738b; font-size:.67rem; letter-spacing:1px; text-transform:uppercase; margin-top:8px; }
+.cinematic-video {
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  opacity:.16; filter:saturate(.75) contrast(1.1); pointer-events:none;
+}
+.cinematic-video-overlay {
+  position:absolute; inset:0; background:linear-gradient(180deg,rgba(5,4,13,.35),rgba(8,5,18,.94));
+  pointer-events:none;
+}
+@media (max-width:900px) {
+  .shadow-card.left,.shadow-card.right { display:none; }
+  .shadow-card.center { width:min(300px,78vw); height:370px; }
+  .shadow-stage { min-height:380px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .shadow-card { transition:none; }
+}
+
 /* ── Cinematic / Pinterest-inspired Dungeon UI ───────────────── */
 .dungeon-gate {
   position:relative; overflow:hidden; border-radius:24px;
@@ -1423,6 +1519,22 @@ def load_shadow_image(url):
         return raw if raw else None
     except Exception:
         return None
+
+def local_video_data_uri():
+    """Return the bundled Shadow Army video as a data URI when available locally."""
+    candidates = [
+        APP_DIR / "assets" / "shadow_army.mp4",
+        APP_DIR / "assets" / "dungeon_hero.mp4",
+    ]
+    for path in candidates:
+        try:
+            if path.exists() and path.stat().st_size > 0:
+                import base64
+                raw = base64.b64encode(path.read_bytes()).decode("ascii")
+                return "data:video/mp4;base64," + raw
+        except Exception:
+            pass
+    return None
 
 def boss_visual(boss_id):
     boss = DUNGEON_BOSSES.get(boss_id, DUNGEON_BOSSES["igrit"])
@@ -2499,50 +2611,96 @@ elif page == "📅 Quest Schedule":
 
 # ---------- Dungeon Battles ----------
 elif page == "⚔️ Dungeon Battles":
-    st.markdown(
-        """<div class='dungeon-gate'>
-          <div class='dungeon-gate-content'>
-            <div class='dungeon-kicker'>INSTANCE GATE · SHADOW ARMY</div>
-            <div class='dungeon-gate-title'>Dungeon Battles</div>
-            <div class='dungeon-gate-sub'>A cinematic study battle interface. Pick a shadow, enter the instance, answer targets, and watch your knowledge damage the boss.</div>
-            <div class='hero-meta'><span class='system-chip'>INTERACTIVE COMBAT</span><span class='system-chip purple'>OFFICIAL SHADOW VISUALS</span><span class='system-chip'>GEMMA QUIZ ENGINE</span></div>
-          </div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    video_uri = local_video_data_uri()
+    if not st.session_state.get("dungeon_run"):
+        st.markdown(
+            """<div class='dungeon-gate'>
+              <div class='dungeon-gate-content'>
+                <div class='dungeon-kicker'>INSTANCE GATE · SHADOW ARMY</div>
+                <div class='dungeon-gate-title'>Dungeon Battles</div>
+                <div class='dungeon-gate-sub'>A cinematic interactive study battle. Select your shadow, configure the raid, then enter a live knowledge arena.</div>
+                <div class='hero-meta'><span class='system-chip'>3D SHADOW SELECT</span><span class='system-chip purple'>LIVE COMBAT HUD</span><span class='system-chip'>GEMMA QUIZ ENGINE</span></div>
+              </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
-    run = st.session_state.get("dungeon_run")
-    if not run:
-        st.markdown("<div class='panel'><div class='panel-title'>◈ SELECT YOUR SHADOW</div><div class='muted'>Choose a boss below. The selected artwork becomes the battle hero when you enter the dungeon.</div></div>", unsafe_allow_html=True)
         if "dungeon_boss_choice" not in st.session_state:
             st.session_state["dungeon_boss_choice"] = "igrit"
 
-        boss_cols = st.columns(len(DUNGEON_BOSSES))
-        for col,(boss_id,boss) in zip(boss_cols,DUNGEON_BOSSES.items()):
+        ids = list(DUNGEON_BOSSES.keys())
+        selected_id = st.session_state["dungeon_boss_choice"]
+        if selected_id not in ids:
+            selected_id = ids[0]
+            st.session_state["dungeon_boss_choice"] = selected_id
+        idx = ids.index(selected_id)
+        prev_id = ids[(idx-1) % len(ids)]
+        next_id = ids[(idx+1) % len(ids)]
+
+        st.markdown("<div class='shadow-carousel-wrap'><div class='shadow-carousel-bg'></div>", unsafe_allow_html=True)
+        if video_uri:
+            st.markdown(
+                f"<video class='cinematic-video' autoplay muted loop playsinline src='{video_uri}'></video><div class='cinematic-video-overlay'></div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown(
+            "<div class='shadow-carousel-title'><div class='eyebrow'>SHADOW ARMY · SELECT YOUR CHAMPION</div><h2>Choose Your Boss</h2><p>Swipe the roster with the controls below. The center card is the active shadow.</p></div>",
+            unsafe_allow_html=True,
+        )
+
+        cards = [prev_id, selected_id, next_id]
+        card_classes = ["left","center","right"]
+        cols = st.columns([0.9,1.15,0.9], gap="small")
+        import base64
+        for col, boss_id, cls in zip(cols, cards, card_classes):
+            boss = DUNGEON_BOSSES[boss_id]
             with col:
-                selected = st.session_state["dungeon_boss_choice"] == boss_id
                 art = load_shadow_image(boss["image"])
                 if art:
+                    b64 = base64.b64encode(art).decode("ascii")
                     st.markdown(
-                        f"<div class='boss-card {'boss-card-selected' if selected else ''}'>"
-                        f"<img src='data:image/jpeg;base64,{__import__('base64').b64encode(art).decode('ascii')}' alt='{boss['name']} artwork'>"
-                        f"<div class='boss-card-copy'><div class='boss-card-name'>{boss['name']}</div><div class='boss-card-meta'>{boss['rank']} · {boss['element']} · +{boss['bonus']} XP</div></div></div>",
+                        f"""<div class='shadow-stage' style='min-height:350px'>
+                          <div class='shadow-card {cls}'>
+                            <img src='data:image/jpeg;base64,{b64}' alt='{boss['name']}'>
+                            <div class='shadow-card-glow'></div>
+                            <div class='shadow-card-copy'>
+                              <div class='shadow-card-rank'>{boss['rank']} · {boss['element']}</div>
+                              <div class='shadow-card-name'>{boss['name']}</div>
+                              <div class='shadow-card-meta'>+{boss['bonus']} XP · {boss['attack']}</div>
+                            </div>
+                          </div>
+                        </div>""",
                         unsafe_allow_html=True,
                     )
                 else:
-                    st.markdown(f"<div class='boss-card'><div style='height:250px;display:flex;align-items:center;justify-content:center;color:#9fb2cb'>{boss['name']}</div><div class='boss-card-copy'><div class='boss-card-name'>{boss['name']}</div></div></div>", unsafe_allow_html=True)
-                if st.button("SELECTED" if selected else "SELECT", key=f"pick_boss_{boss_id}", use_container_width=True, type="primary" if selected else "secondary"):
-                    st.session_state["dungeon_boss_choice"] = boss_id
-                    st.rerun()
+                    st.markdown(f"<div class='shadow-card {cls}'><div style='height:100%;display:flex;align-items:center;justify-content:center;color:#9fb2cb'>{boss['name']}</div></div>", unsafe_allow_html=True)
+                if cls == "center":
+                    if st.button("✓ SELECTED SHADOW", key="select_active_shadow", use_container_width=True, type="primary"):
+                        pass
 
-        st.markdown("<div class='system-panel' style='margin-top:16px'><b>Battle loop</b><div class='muted' style='margin-top:6px'>Answer correctly → deal damage → build combo → break the boss → claim XP. Wrong answers reset combo and consume one shield, but never remove XP.</div></div>", unsafe_allow_html=True)
+        nav1,nav2,nav3 = st.columns([1,1,1])
+        with nav1:
+            if st.button("‹ PREVIOUS", key="shadow_prev", use_container_width=True):
+                st.session_state["dungeon_boss_choice"] = prev_id
+                st.rerun()
+        with nav2:
+            st.markdown(
+                "<div class='carousel-nav'><span class='carousel-dot active'></span><span class='carousel-dot'></span><span class='carousel-dot'></span><span class='carousel-dot'></span><span class='carousel-dot'></span></div><div class='carousel-hint'>Interactive shadow roster</div>",
+                unsafe_allow_html=True,
+            )
+        with nav3:
+            if st.button("NEXT ›", key="shadow_next", use_container_width=True):
+                st.session_state["dungeon_boss_choice"] = next_id
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
+        st.markdown("<div class='system-panel' style='margin-top:16px'><div class='panel-title'>◈ RAID CONFIGURATION</div><div class='muted'>Correct answers deal damage. Build your combo, preserve your shields, and clear the selected shadow to earn XP.</div></div>", unsafe_allow_html=True)
         with st.form("dungeon_launch"):
             a,b,c = st.columns(3)
             subject = a.text_input("Study subject", placeholder="e.g. Python, DBMS, Maths")
             difficulty = b.selectbox("Threat level", ["Easy","Normal","Hard","Nightmare"], index=1)
             count = c.selectbox("Targets", [5,7,10], index=0)
-            launch = st.form_submit_button("⚔️ ENTER THE INSTANCE", type="primary", use_container_width=True)
+            launch = st.form_submit_button(f"⚔️ ENTER {DUNGEON_BOSSES[selected_id]['name'].upper()}'S INSTANCE", type="primary", use_container_width=True)
 
         with db() as con:
             recent = con.execute("SELECT subject,difficulty,correct,questions,xp_earned,played_at FROM dungeon_runs ORDER BY id DESC LIMIT 5").fetchall()
@@ -2556,15 +2714,15 @@ elif page == "⚔️ Dungeon Battles":
             if not subject.strip():
                 st.warning("Enter a subject first.")
             else:
-                boss_id = st.session_state.get("dungeon_boss_choice","igrit")
                 questions, source = generate_quiz_questions(subject.strip(), count, difficulty)
                 st.session_state["dungeon_run"] = {
                     "subject":subject.strip(),"difficulty":difficulty,"questions":questions,
-                    "source":source,"boss_id":boss_id,"index":0,"correct":0,"combo":0,
+                    "source":source,"boss_id":selected_id,"index":0,"correct":0,"combo":0,
                     "shield":3,"answered":False,"last_result":None,"finished":False
                 }
                 st.rerun()
     else:
+        run = st.session_state["dungeon_run"]
         boss_id = run.get("boss_id","igrit")
         boss = DUNGEON_BOSSES.get(boss_id,DUNGEON_BOSSES["igrit"])
         if run.get("finished"):
@@ -2584,16 +2742,16 @@ elif page == "⚔️ Dungeon Battles":
                 st.rerun()
         else:
             total = len(run["questions"])
-            idx = run["index"]
-            q = run["questions"][idx]
+            qidx = run["index"]
+            q = run["questions"][qidx]
             hp_pct = int(100 * (total-run["correct"]) / max(1,total))
             art = load_shadow_image(boss["image"])
 
-            if art:
-                import base64
-                art_b64 = base64.b64encode(art).decode("ascii")
-                left,right = st.columns([1.18,0.82], gap="large")
-                with left:
+            left,right = st.columns([1.18,0.82], gap="large")
+            with left:
+                if art:
+                    import base64
+                    art_b64 = base64.b64encode(art).decode("ascii")
                     st.markdown(
                         f"""<div class='dungeon-battle-shell'><div class='dungeon-art-frame'>
                           <img src='data:image/jpeg;base64,{art_b64}' alt='{boss['name']} boss artwork'>
@@ -2601,50 +2759,52 @@ elif page == "⚔️ Dungeon Battles":
                         </div></div>""",
                         unsafe_allow_html=True,
                     )
-                with right:
-                    st.markdown("<div class='dungeon-hud'>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='focus-badge'>{boss['rank']} · {boss['element']} CLASS</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='dungeon-hud-title'>{boss['name']}</div><div class='dungeon-hud-sub'>{boss['description']}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='dungeon-hp-label'><span>BOSS VITALITY</span><b>{max(0,total-run['correct'])}/{total}</b></div><div class='dungeon-hp'><div style='width:{max(0,hp_pct)}%'></div></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='dungeon-stat-grid'><div class='dungeon-stat'><b>x{run['combo']}</b><span>Combo</span></div><div class='dungeon-stat'><b>{run['correct']}/{idx}</b><span>Hits</span></div><div class='dungeon-stat'><b>{'♥'*run['shield']}</b><span>Shield</span></div></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='muted'>SIGNATURE ATTACK · <b style='color:#e6eefb'>{boss['attack']}</b> · BONUS +{boss['bonus']} XP</div>", unsafe_allow_html=True)
-                    if run.get("last_result") is None:
-                        st.markdown(f"<div class='dungeon-question'><div class='dungeon-question-label'>TARGET {idx+1} / {total} · SELECT YOUR STRIKE</div><div class='dungeon-question-text'>{q['q']}</div></div>", unsafe_allow_html=True)
-                        with st.form(f"dungeon_question_{idx}"):
-                            choice = st.radio("Choose your answer", q["options"], index=None)
-                            strike = st.form_submit_button("⚡ STRIKE BOSS", type="primary", use_container_width=True)
-                        if strike:
-                            if choice is None:
-                                st.warning("Choose an answer first.")
+                else:
+                    st.warning("The official boss artwork could not be loaded.")
+            with right:
+                st.markdown("<div class='dungeon-hud'>", unsafe_allow_html=True)
+                st.markdown(f"<div class='focus-badge'>{boss['rank']} · {boss['element']} CLASS</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='dungeon-hud-title'>{boss['name']}</div><div class='dungeon-hud-sub'>{boss['description']}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='dungeon-hp-label'><span>BOSS VITALITY</span><b>{max(0,total-run['correct'])}/{total}</b></div><div class='dungeon-hp'><div style='width:{max(0,hp_pct)}%'></div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='dungeon-stat-grid'><div class='dungeon-stat'><b>x{run['combo']}</b><span>Combo</span></div><div class='dungeon-stat'><b>{run['correct']}/{qidx}</b><span>Hits</span></div><div class='dungeon-stat'><b>{'♥'*run['shield']}</b><span>Shield</span></div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='muted'>SIGNATURE ATTACK · <b style='color:#e6eefb'>{boss['attack']}</b> · BONUS +{boss['bonus']} XP</div>", unsafe_allow_html=True)
+                if run.get("last_result") is None:
+                    st.markdown(f"<div class='dungeon-question'><div class='dungeon-question-label'>TARGET {qidx+1} / {total} · SELECT YOUR STRIKE</div><div class='dungeon-question-text'>{q['q']}</div></div>", unsafe_allow_html=True)
+                    with st.form(f"dungeon_question_{qidx}"):
+                        choice = st.radio("Choose your answer", q["options"], index=None)
+                        strike = st.form_submit_button("⚡ STRIKE BOSS", type="primary", use_container_width=True)
+                    if strike:
+                        if choice is None:
+                            st.warning("Choose an answer first.")
+                        else:
+                            selected = q["options"].index(choice)
+                            correct = selected == q["answer"]
+                            run["last_result"] = {"correct":correct,"answer":q["options"][q["answer"]],"explain":q.get("explain","")}
+                            if correct:
+                                run["correct"] += 1
+                                run["combo"] += 1
                             else:
-                                selected = q["options"].index(choice)
-                                correct = selected == q["answer"]
-                                run["last_result"] = {"correct":correct,"answer":q["options"][q["answer"]],"explain":q.get("explain","")}
-                                if correct:
-                                    run["correct"] += 1
-                                    run["combo"] += 1
-                                else:
-                                    run["combo"] = 0
-                                    run["shield"] = max(0,run["shield"]-1)
-                                st.session_state["dungeon_run"] = run
-                                st.rerun()
+                                run["combo"] = 0
+                                run["shield"] = max(0,run["shield"]-1)
+                            st.session_state["dungeon_run"] = run
+                            st.rerun()
+                else:
+                    result = run["last_result"]
+                    if result["correct"]:
+                        st.success(f"⚡ CRITICAL HIT · {boss['name']} staggered! Combo x{run['combo']}")
                     else:
-                        result = run["last_result"]
-                        if result["correct"]:
-                            st.success(f"⚡ CRITICAL HIT · {boss['name']} staggered! Combo x{run['combo']}")
-                        else:
-                            st.error(f"🛡 BLOCKED · Correct answer: {result['answer']}")
-                        st.markdown(f"<div class='system-panel'><div class='panel-title'>Battle analysis</div><div class='muted'>{result['explain']}</div></div>", unsafe_allow_html=True)
-                        if idx + 1 < total:
-                            if st.button("NEXT TARGET →", type="primary", use_container_width=True):
-                                run["index"] += 1
-                                run["last_result"] = None
-                                st.session_state["dungeon_run"] = run
-                                st.rerun()
-                        else:
-                            if st.button("🏆 CLAIM VICTORY REWARDS", type="primary", use_container_width=True):
-                                finish_dungeon()
-                                st.rerun()
+                        st.error(f"🛡 BLOCKED · Correct answer: {result['answer']}")
+                    st.markdown(f"<div class='system-panel'><div class='panel-title'>Battle analysis</div><div class='muted'>{result['explain']}</div></div>", unsafe_allow_html=True)
+                    if qidx + 1 < total:
+                        if st.button("NEXT TARGET →", type="primary", use_container_width=True):
+                            run["index"] += 1
+                            run["last_result"] = None
+                            st.session_state["dungeon_run"] = run
+                            st.rerun()
+                    else:
+                        if st.button("🏆 CLAIM VICTORY REWARDS", type="primary", use_container_width=True):
+                            finish_dungeon()
+                            st.rerun()
 
 # ---------- Focus Room ----------
 elif page == "⏱️ Focus Room":
