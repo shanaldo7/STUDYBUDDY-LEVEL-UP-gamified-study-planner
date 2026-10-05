@@ -1164,6 +1164,7 @@ def render_module_hud(current_page):
         "🎓 Exam Command Center": ("EXAM PROTOCOL · TACTICAL PREPARATION","Map your syllabus, measure mastery, identify risk and deploy an adaptive study plan."),
         "🤖 AI System Assistant": ("SYSTEM CORE · AI ASSISTANT","Use the assistant as your tactical study operator."),
         "👥 Shadow Army": ("SHADOW COMMAND · COMPANIONS","Manage your companions and squad progression."),
+        "🔒 Shadow Army": ("LOCKED SYSTEM · DUNGEON GATE","Clear your first Dungeon and reach Level 2 to awaken the Shadow Army."),
         "👑 Anime RPG": ("RPG SYSTEM · PROGRESSION","Characters, bosses, rewards and power progression."),
         "🤝 Guild Hall": ("GUILD NETWORK · STUDY PARTY","Coordinate your study party and shared goals."),
         "📚 Important PDFs": ("KNOWLEDGE ARCHIVE · DOCUMENTS","Organize the documents behind your study system."),
@@ -1183,6 +1184,7 @@ def render_module_hud(current_page):
         "🎓 Exam Command Center": (("MAP","Build syllabus"),("SCAN","Measure mastery"),("RAID","Attack weak topics")),
         "🤖 AI System Assistant": (("ASK","Send command"),("THINK","Process context"),("ACT","Execute advice")),
         "👥 Shadow Army": (("SUMMON","Select companion"),("TRAIN","Build power"),("FORMATION","Set squad")),
+        "🔒 Shadow Army": (("LOCKED","Enter Dungeon"),("CLEAR","Complete battle"),("AWAKEN","Reach Level 2")),
         "👑 Anime RPG": (("EXPLORE","Open roster"),("RAID","Fight boss"),("REWARD","Upgrade")),
         "🤝 Guild Hall": (("CHECK IN","Update activity"),("PARTY","Manage hunters"),("GOAL","Track weekly XP")),
         "📚 Important PDFs": (("ARCHIVE","Add document"),("SCAN","Extract knowledge"),("REVIEW","Study source")),
@@ -1990,6 +1992,7 @@ def create_guild_code(name):
 
 
 # ---------- Sidebar / navigation ----------
+shadow_access = dungeon_battle_count() >= 1 and level_for(get_profile()["xp"]) >= 2
 pages = [
     "🏠 Hunter Dashboard",
     "📅 Quest Schedule",
@@ -2002,7 +2005,7 @@ pages = [
     "🎯 Study Intelligence",
     "🎓 Exam Command Center",
     "🤖 AI System Assistant",
-    "👥 Shadow Army",
+    "👥 Shadow Army" if shadow_access else "🔒 Shadow Army",
     "👑 Anime RPG",
     "🤝 Guild Hall",
     "📚 Important PDFs",
@@ -2666,111 +2669,123 @@ elif page == "✨ Gemma Study Lab":
 
 
 # ---------- Shadow Army ----------
-elif page == "👥 Shadow Army":
+elif page in ("👥 Shadow Army", "🔒 Shadow Army"):
     render_module_hud(page)
-    available = unlocked_shadows(profile["xp"])
-    st.markdown(
-        f"""<div class='hero'>
-          <div class='hero-kicker'>Shadow Extraction · Companion System</div>
-          <div class='hero-title'>Shadow Army</div>
-          <p class='hero-sub'>Unlock loyal study companions as you level up. Each soldier has a distinct AI personality and helps you train.</p>
-          <div class='hero-meta'>
-            <span class='system-chip'>{len(available)}/{len(SHADOW_ARMY)} Awakened</span>
-            <span class='system-chip purple'>Level {level}</span>
-          </div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
-    battles = dungeon_battle_count()
-    st.markdown(f"**Army strength · {len(available)}/{len(SHADOW_ARMY)} shadows awakened** · **{battles} dungeon clears**")
-    st.progress(len(available) / len(SHADOW_ARMY))
-    st.markdown("<div class='system-panel'><div class='panel-title'>◈ SHADOW AWAKENING PROTOCOL</div><div class='muted'>Every companion requires a Hunter level AND completed Dungeon clears. Clear battles to awaken the next shadow.</div></div>", unsafe_allow_html=True)
-    cols = st.columns(2)
-    for idx, soldier in enumerate(SHADOW_ARMY):
-        unlocked = soldier in available
-        with cols[idx % 2]:
-            opacity = "1" if unlocked else ".48"
-            status = "🟢 AWAKENED" if unlocked else f"🔒 LV {soldier['level']} + {soldier.get('dungeons',1)} DUNGEON CLEARS"
-            # Only reveal character art after the soldier is unlocked.
-            art = load_shadow_image(SHADOW_IMAGES[soldier["id"]]) if unlocked and soldier["id"] in SHADOW_IMAGES else None
-            if art:
-                st.image(art, use_container_width=True)
-            else:
+    if not shadow_access:
+        st.markdown("""<div class='sb-unlock' style='animation:sbUnlockIn .55s both'>
+          <div class='sb-unlock-seal'>🔒</div>
+          <div class='sb-unlock-kicker'>SYSTEM LOCK · DUNGEON GATE</div>
+          <div class='sb-unlock-title'>SHADOW ARMY LOCKED</div>
+          <div class='sb-unlock-sub'>Complete 1 Dungeon battle and reach Level 2 to awaken your first shadow.</div>
+        </div>""", unsafe_allow_html=True)
+        if st.button("⚔️ Enter Dungeon Battles", type="primary", use_container_width=True):
+            st.session_state["nav_page"]="⚔️ Dungeon Battles"
+            st.rerun()
+    else:
+        available = unlocked_shadows(profile["xp"])
+
+        st.markdown(
+            f"""<div class='hero'>
+              <div class='hero-kicker'>Shadow Extraction · Companion System</div>
+              <div class='hero-title'>Shadow Army</div>
+              <p class='hero-sub'>Unlock loyal study companions as you level up. Each soldier has a distinct AI personality and helps you train.</p>
+              <div class='hero-meta'>
+                <span class='system-chip'>{len(available)}/{len(SHADOW_ARMY)} Awakened</span>
+                <span class='system-chip purple'>Level {level}</span>
+              </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        battles = dungeon_battle_count()
+        st.markdown(f"**Army strength · {len(available)}/{len(SHADOW_ARMY)} shadows awakened** · **{battles} dungeon clears**")
+        st.progress(len(available) / len(SHADOW_ARMY))
+        st.markdown("<div class='system-panel'><div class='panel-title'>◈ SHADOW AWAKENING PROTOCOL</div><div class='muted'>Every companion requires a Hunter level AND completed Dungeon clears. Clear battles to awaken the next shadow.</div></div>", unsafe_allow_html=True)
+        cols = st.columns(2)
+        for idx, soldier in enumerate(SHADOW_ARMY):
+            unlocked = soldier in available
+            with cols[idx % 2]:
+                opacity = "1" if unlocked else ".48"
+                status = "🟢 AWAKENED" if unlocked else f"🔒 LV {soldier['level']} + {soldier.get('dungeons',1)} DUNGEON CLEARS"
+                # Only reveal character art after the soldier is unlocked.
+                art = load_shadow_image(SHADOW_IMAGES[soldier["id"]]) if unlocked and soldier["id"] in SHADOW_IMAGES else None
+                if art:
+                    st.image(art, use_container_width=True)
+                else:
+                    st.markdown(
+                        "<div style='height:170px;display:flex;align-items:center;justify-content:center;"
+                        "border:1px solid rgba(132,177,235,.2);border-radius:16px;"
+                        "background:radial-gradient(circle,rgba(71,95,150,.35),rgba(8,13,28,.8));"
+                        "font-size:56px;text-shadow:0 0 24px #67e8f966'>"
+                        + (soldier["emoji"] if unlocked else "🔒") + "</div>",
+                        unsafe_allow_html=True,
+                    )
+                description = soldier["description"] if unlocked else (
+                    f"Clear {soldier.get('dungeons', 1)} Dungeon battle(s) and reach "
+                    f"Level {soldier['level']} to awaken this shadow."
+                )
+                display_name = soldier["name"] if unlocked else "???"
+                display_title = soldier["title"] if unlocked else "Unknown shadow"
+                display_ability = soldier["ability"] if unlocked else "Hidden ability"
                 st.markdown(
-                    "<div style='height:170px;display:flex;align-items:center;justify-content:center;"
-                    "border:1px solid rgba(132,177,235,.2);border-radius:16px;"
-                    "background:radial-gradient(circle,rgba(71,95,150,.35),rgba(8,13,28,.8));"
-                    "font-size:56px;text-shadow:0 0 24px #67e8f966'>"
-                    + (soldier["emoji"] if unlocked else "🔒") + "</div>",
+                    f"<div class='panel' style='min-height:175px;opacity:{opacity}'>"
+                    f"<div class='panel-title' style='margin:0'>{display_name}</div>"
+                    f"<div class='muted'>{display_title}</div>"
+                    f"<div style='margin-top:12px;color:#67e8f9;font-weight:700'>{status}</div>"
+                    f"<div style='margin-top:7px'><b>{display_ability}</b></div>"
+                    f"<div class='muted' style='margin-top:5px'>{description}</div></div>",
                     unsafe_allow_html=True,
                 )
-            description = soldier["description"] if unlocked else (
-                f"Clear {soldier.get('dungeons', 1)} Dungeon battle(s) and reach "
-                f"Level {soldier['level']} to awaken this shadow."
-            )
-            display_name = soldier["name"] if unlocked else "???"
-            display_title = soldier["title"] if unlocked else "Unknown shadow"
-            display_ability = soldier["ability"] if unlocked else "Hidden ability"
-            st.markdown(
-                f"<div class='panel' style='min-height:175px;opacity:{opacity}'>"
-                f"<div class='panel-title' style='margin:0'>{display_name}</div>"
-                f"<div class='muted'>{display_title}</div>"
-                f"<div style='margin-top:12px;color:#67e8f9;font-weight:700'>{status}</div>"
-                f"<div style='margin-top:7px'><b>{display_ability}</b></div>"
-                f"<div class='muted' style='margin-top:5px'>{description}</div></div>",
-                unsafe_allow_html=True,
-            )
-    st.divider()
-    if not available:
-        st.info("Clear your first Dungeon battle and reach Level 2 to awaken Igris.")
-    else:
-        reaction_pool = [
-            ("Igris", "⚔️ Igris stands ready. One clear objective. No excuses. "),
-            ("Tank", "🐻 Tank remembers your progress. A little study today is still progress."),
-            ("Iron", "🛡️ Iron has raised the Focus Shield. Close the distractions and begin."),
-            ("Tusk", "🔮 Tusk senses knowledge waiting to be mastered. Bring him one difficult topic."),
-            ("Beru", "👑 Beru is delighted by your effort, my master. Now let us make that effort count!")
-        ]
-        favored = reaction_pool[min(level-1, len(reaction_pool)-1)]
-        st.markdown(f"<div class='shadow-reaction'><span>{favored[0]}</span><b>{favored[1]}</b></div>", unsafe_allow_html=True)
-        st.subheader("💬 Speak with your shadow")
-        selected_name = st.selectbox("Choose an awakened soldier", [x["name"] for x in available])
-        soldier = next(x for x in available if x["name"] == selected_name)
-        st.caption(f"{soldier['emoji']} {soldier['ability']} — {soldier['description']}")
-        art = load_shadow_image(SHADOW_IMAGES[soldier["id"]]) if soldier["id"] in SHADOW_IMAGES else None
-        if art:
-            st.image(art, width=260)
-        chat_key = f"shadow_chat_{soldier['id']}"
-        if chat_key not in st.session_state:
-            st.session_state[chat_key] = []
-        for item in st.session_state[chat_key]:
-            with st.chat_message(item["role"]):
-                st.markdown(item["content"])
-        with st.form(f"shadow_chat_form_{soldier['id']}", clear_on_submit=True):
-            message = st.text_input("Message your shadow", placeholder=f"Ask {soldier['name']} for study help...")
-            send_shadow = st.form_submit_button("Send message", type="primary")
-        if send_shadow:
-            if not message.strip():
-                st.warning("Type a message first.")
-            else:
-                with db() as con:
-                    pending = con.execute("SELECT title,subject,due,minutes,difficulty FROM quests WHERE completed=0 ORDER BY due,id LIMIT 6").fetchall()
-                pending_text = "; ".join([f"{q['title']} ({q['subject'] or 'General'}, due {q['due']}, {q['minutes']} min, {q['difficulty']})" for q in pending]) or "No pending quests"
-                player_context = (f"Player level: {level}; rank: {rank}; XP: {profile['xp']}; streak: {profile['streak']}. "
-                                  f"Pending quests: {pending_text}. Player's message: {message.strip()}")
-                st.session_state[chat_key].append({"role":"user", "content":message.strip()})
-                with st.spinner(f"{soldier['name']} is responding..."):
-                    try:
-                        reply = ask_ollama(player_context, soldier["persona"] + " Use the player's progress and pending quests when relevant. Keep replies short and useful.")
-                        st.session_state[chat_key].append({"role":"assistant", "content":reply})
-                        st.rerun()
-                    except RuntimeError as exc:
-                        st.error(str(exc))
-                        st.session_state[chat_key].pop()
-        if st.button(f"Clear {soldier['name']} conversation", key=f"clear_shadow_{soldier['id']}"):
-            st.session_state[chat_key] = []
-            st.rerun()
-        st.caption("Shadow conversations use your hosted Gemma model. Chatting does not award XP; complete scheduled quests to earn rewards.")
+        st.divider()
+        if not available:
+            st.info("Clear your first Dungeon battle and reach Level 2 to awaken Igris.")
+        else:
+            reaction_pool = [
+                ("Igris", "⚔️ Igris stands ready. One clear objective. No excuses. "),
+                ("Tank", "🐻 Tank remembers your progress. A little study today is still progress."),
+                ("Iron", "🛡️ Iron has raised the Focus Shield. Close the distractions and begin."),
+                ("Tusk", "🔮 Tusk senses knowledge waiting to be mastered. Bring him one difficult topic."),
+                ("Beru", "👑 Beru is delighted by your effort, my master. Now let us make that effort count!")
+            ]
+            favored = reaction_pool[min(level-1, len(reaction_pool)-1)]
+            st.markdown(f"<div class='shadow-reaction'><span>{favored[0]}</span><b>{favored[1]}</b></div>", unsafe_allow_html=True)
+            st.subheader("💬 Speak with your shadow")
+            selected_name = st.selectbox("Choose an awakened soldier", [x["name"] for x in available])
+            soldier = next(x for x in available if x["name"] == selected_name)
+            st.caption(f"{soldier['emoji']} {soldier['ability']} — {soldier['description']}")
+            art = load_shadow_image(SHADOW_IMAGES[soldier["id"]]) if soldier["id"] in SHADOW_IMAGES else None
+            if art:
+                st.image(art, width=260)
+            chat_key = f"shadow_chat_{soldier['id']}"
+            if chat_key not in st.session_state:
+                st.session_state[chat_key] = []
+            for item in st.session_state[chat_key]:
+                with st.chat_message(item["role"]):
+                    st.markdown(item["content"])
+            with st.form(f"shadow_chat_form_{soldier['id']}", clear_on_submit=True):
+                message = st.text_input("Message your shadow", placeholder=f"Ask {soldier['name']} for study help...")
+                send_shadow = st.form_submit_button("Send message", type="primary")
+            if send_shadow:
+                if not message.strip():
+                    st.warning("Type a message first.")
+                else:
+                    with db() as con:
+                        pending = con.execute("SELECT title,subject,due,minutes,difficulty FROM quests WHERE completed=0 ORDER BY due,id LIMIT 6").fetchall()
+                    pending_text = "; ".join([f"{q['title']} ({q['subject'] or 'General'}, due {q['due']}, {q['minutes']} min, {q['difficulty']})" for q in pending]) or "No pending quests"
+                    player_context = (f"Player level: {level}; rank: {rank}; XP: {profile['xp']}; streak: {profile['streak']}. "
+                                      f"Pending quests: {pending_text}. Player's message: {message.strip()}")
+                    st.session_state[chat_key].append({"role":"user", "content":message.strip()})
+                    with st.spinner(f"{soldier['name']} is responding..."):
+                        try:
+                            reply = ask_ollama(player_context, soldier["persona"] + " Use the player's progress and pending quests when relevant. Keep replies short and useful.")
+                            st.session_state[chat_key].append({"role":"assistant", "content":reply})
+                            st.rerun()
+                        except RuntimeError as exc:
+                            st.error(str(exc))
+                            st.session_state[chat_key].pop()
+            if st.button(f"Clear {soldier['name']} conversation", key=f"clear_shadow_{soldier['id']}"):
+                st.session_state[chat_key] = []
+                st.rerun()
+            st.caption("Shadow conversations use your hosted Gemma model. Chatting does not award XP; complete scheduled quests to earn rewards.")
 
 # ---------- Schedule ----------
 elif page == "📅 Quest Schedule":
