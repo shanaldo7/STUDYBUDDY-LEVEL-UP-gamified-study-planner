@@ -185,6 +185,7 @@ def render(path,profile,award_xp,ask_ai_fn=None):
     # Status panel inspired by the supplied reference image, driven by real StudyBuddy telemetry.
     total_xp=int(profile["xp"]); streak=int(profile["streak"])
     level=max(1,total_xp//100+1); progress=total_xp%100
+    chosen_for_status=next((x for x in CHARACTERS if x["id"]==s["selected_character"]), CHARACTERS[0])
     hp_max=1000+level*60; hp=min(hp_max,700+level*45+streak*18)
     mp_max=350+level*15; mp=min(mp_max,150+level*9+streak*4)
     fatigue=min(100,max(0,20+streak*2))
@@ -196,7 +197,7 @@ def render(path,profile,award_xp,ask_ai_fn=None):
       <div class="status-label">STATUS</div>
       <div class="status-core">
         <div><div class="status-level">{level}</div><div class="status-small">LEVEL</div></div>
-        <div class="status-meta"><span>JOB:</span> <b>HUNTER</b><br><span>TITLE:</span> <b>{html.escape(chosen["title"] if "chosen" in locals() else "Awakened Hunter")}</b></div>
+        <div class="status-meta"><span>JOB:</span> <b>HUNTER</b><br><span>TITLE:</span> <b>{html.escape(chosen_for_status["title"])}</b></div>
       </div>
       <div class="status-bars">
         <div class="status-bar"><div class="status-bar-head"><b>✚ HP</b><span>{hp}/{hp_max}</span></div><div class="status-track"><div class="status-fill" style="width:{hp/hp_max*100:.0f}%"></div></div></div>
@@ -214,22 +215,28 @@ def render(path,profile,award_xp,ask_ai_fn=None):
       <div style="max-width:820px;margin:10px auto 0;color:#6f88a5;font-size:.68rem;letter-spacing:1px;text-align:center">XP {progress}/100 · STREAK {streak} · TELEMETRY SYNCED</div>
     </div>
     """,unsafe_allow_html=True)
-    st.components.v1.html("""
-    <script>
-    const text="SYSTEM ONLINE. HUNTER STATUS SYNCHRONIZED. YOUR NEXT QUEST AWAITS.";
-    function speakSystem(){
-      if(!window.parent.speechSynthesis){return;}
-      const u=new SpeechSynthesisUtterance(text);
-      const voices=window.parent.speechSynthesis.getVoices();
-      u.voice=voices.find(v=>/en-US|en-GB/i.test(v.lang) && /David|Mark|Daniel|Alex|Guy/i.test(v.name))
-             || voices.find(v=>/en/i.test(v.lang)) || null;
-      u.rate=.82; u.pitch=.58; u.volume=1;
-      window.parent.speechSynthesis.cancel(); window.parent.speechSynthesis.speak(u);
-    }
-    window.parent.speechSynthesis?.getVoices();
-    </script>
-    """,height=0)
-    st.markdown('<div class="system-voice">🔊 <b>SYSTEM VOICE</b> — Use the browser voice control below to hear a low, slow system announcement.</div>',unsafe_allow_html=True)
+    st.markdown('<div class="system-voice">🔊 <b>SYSTEM VOICE</b> — Deep tactical voice · low pitch · slow cadence</div>',unsafe_allow_html=True)
+    if st.button("🔊 SYSTEM ONLINE", key="system_voice_button", use_container_width=True):
+        components.html("""
+        <script>
+        const speak = () => {
+          const synth = window.parent.speechSynthesis;
+          if (!synth) return;
+          const u = new SpeechSynthesisUtterance(
+            "System online. Hunter status synchronized. " +
+            "Level established. Your attributes are ready. " +
+            "New mission available. Arise, Hunter."
+          );
+          const voices = synth.getVoices();
+          u.voice = voices.find(v => /en-US|en-GB/i.test(v.lang) && /David|Mark|Daniel|Guy|Alex/i.test(v.name))
+                 || voices.find(v => /en/i.test(v.lang)) || null;
+          u.rate = 0.76; u.pitch = 0.48; u.volume = 1.0;
+          synth.cancel();
+          synth.speak(u);
+        };
+        setTimeout(speak, 120);
+        </script>
+        """, height=1)
 
     st.markdown("<div class='rpg-hero'><div class='rpg-kicker'>Study → Power → Raid</div><div class='rpg-title'>Anime RPG Command Center</div><div style='color:#b9c9e3;margin-top:7px'>Real web artwork, study-powered boss battles, character collection and progress analytics.</div></div>",unsafe_allow_html=True)
     a,b,c,d=st.columns(4)
