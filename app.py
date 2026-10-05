@@ -1067,8 +1067,67 @@ input:focus, textarea:focus,
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(94,234,212,.28); background-clip: padding-box; border: 2px solid transparent; }
+
+/* ── Cinematic video glass system ───────────────────────────── */
+.video-command-hero{position:relative;overflow:hidden;min-height:410px;margin:0 0 20px;border-radius:30px;border:1px solid rgba(103,232,249,.28);background:#050711;box-shadow:0 30px 90px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.08);isolation:isolate}
+.video-command-hero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.72;filter:saturate(1.08) contrast(1.06);z-index:-3}
+.video-command-hero::before{content:"";position:absolute;inset:0;z-index:-2;background:linear-gradient(90deg,rgba(3,5,15,.94) 0%,rgba(4,6,17,.72) 38%,rgba(7,5,19,.30) 72%,rgba(4,5,14,.72) 100%),linear-gradient(180deg,rgba(5,5,16,.08),rgba(4,5,14,.78))}
+.video-command-hero::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;background:linear-gradient(90deg,transparent,rgba(103,232,249,.08),transparent),repeating-linear-gradient(115deg,transparent 0 18px,rgba(255,255,255,.025) 19px 20px);mix-blend-mode:screen}
+.video-glass{position:relative;width:min(720px,86%);margin:30px;padding:28px;border:1px solid rgba(255,255,255,.15);border-radius:24px;background:linear-gradient(145deg,rgba(5,10,24,.73),rgba(27,14,51,.52));backdrop-filter:blur(16px) saturate(135%);-webkit-backdrop-filter:blur(16px) saturate(135%);box-shadow:0 22px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.10);transition:transform .35s cubic-bezier(.16,1,.3,1),border-color .25s ease}
+.video-glass:hover{transform:perspective(1100px) rotateY(-1.2deg) rotateX(.8deg) translateY(-4px);border-color:rgba(103,232,249,.48)}
+.video-kicker{color:#67e8f9;font:800 .62rem Orbitron,sans-serif;letter-spacing:2.2px;text-transform:uppercase}
+.video-title{font:800 clamp(1.7rem,4vw,3.1rem) Orbitron,sans-serif;color:#fff;line-height:1.08;margin:8px 0}
+.video-copy{color:#a8b8cf;font-size:.84rem;max-width:650px}
+.video-hud-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.video-hud-chip{padding:8px 11px;border-radius:11px;background:rgba(3,7,17,.52);border:1px solid rgba(255,255,255,.09);font:700 .64rem Orbitron,sans-serif;color:#dceaff;letter-spacing:.7px}
+.video-scanline{position:absolute;left:0;right:0;top:-5%;height:2px;background:linear-gradient(90deg,transparent,#67e8f9,#a78bfa,transparent);box-shadow:0 0 16px #67e8f9;opacity:.55;animation:videoScan 5s linear infinite;pointer-events:none}
+@keyframes videoScan{0%{top:-5%}100%{top:105%}}
+.module-hud{position:relative;overflow:hidden;margin:0 0 17px;padding:15px 18px;border:1px solid rgba(126,177,235,.18);border-radius:17px;background:linear-gradient(110deg,rgba(7,14,29,.82),rgba(27,14,49,.72));backdrop-filter:blur(14px);box-shadow:0 14px 38px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.06)}
+.module-hud::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(#67e8f9,#a78bfa);box-shadow:0 0 15px rgba(103,232,249,.45)}
+.module-hud::after{content:"";position:absolute;right:-40px;top:-65px;width:150px;height:150px;border-radius:50%;border:1px solid rgba(167,139,250,.14);box-shadow:0 0 0 20px rgba(167,139,250,.025),0 0 0 40px rgba(103,232,249,.015);pointer-events:none}
+.module-hud-main{color:#eaf4ff;font:800 .73rem Orbitron,sans-serif;letter-spacing:1.35px;text-transform:uppercase}
+.module-hud-sub{color:#71839f;font-size:.68rem;margin-top:3px}
+.module-hud-live{float:right;color:#67e8f9;font:700 .58rem Orbitron,sans-serif;letter-spacing:1px}
+.motion-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:10px 0 18px}
+.motion-tile{position:relative;overflow:hidden;padding:15px;border-radius:17px;border:1px solid rgba(126,177,235,.16);background:linear-gradient(145deg,rgba(18,31,57,.78),rgba(11,14,29,.76));transition:transform .3s cubic-bezier(.16,1,.3,1),border-color .25s,box-shadow .3s}
+.motion-tile:hover{transform:perspective(800px) rotateY(-2deg) translateY(-5px);border-color:rgba(103,232,249,.4);box-shadow:0 20px 45px rgba(0,0,0,.36),0 0 24px rgba(103,232,249,.06)}
+.motion-tile-icon{font-size:1.35rem}.motion-tile-title{font:800 .72rem Orbitron,sans-serif;color:#fff;margin-top:6px}.motion-tile-copy{font-size:.67rem;color:#7386a1;margin-top:3px}
+@media(max-width:800px){.video-glass{width:auto;margin:14px;padding:20px}.video-command-hero{min-height:430px}.motion-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.video-scanline{animation:none}.video-glass:hover,.motion-tile:hover{transform:none}}
+
 </style>
 """, unsafe_allow_html=True)
+
+
+# ============================================================
+# Cinematic motion UI helpers
+# ============================================================
+HERO_VIDEO_URL = "https://raw.githubusercontent.com/shanaldo7/STUDYBUDDY-LEVEL-UP-gamified-study-planner/main/assets/studybuddy_hero.mp4"
+
+def render_module_hud(current_page):
+    meta = {
+        "📅 Quest Schedule": ("MISSION CONTROL · QUEST DEPLOYMENT","Deploy, prioritize and clear today's missions."),
+        "⚔️ Dungeon Battles": ("COMBAT INSTANCE · KNOWLEDGE RAID","Turn correct answers into damage and clear the shadow."),
+        "⏱️ Focus Room": ("TRAINING CHAMBER · DEEP WORK","Build focus streaks and convert time into progression."),
+        "🧠 Revision Lab": ("MEMORY CORE · ACTIVE RECALL","Review due cards, streaks and mastery."),
+        "✨ Gemma Study Lab": ("AI LAB · GEMMA INTELLIGENCE","Generate study material, quizzes and plans."),
+        "🏆 Achievements": ("HUNTER ARCHIVE · MILESTONES","Track unlocks, rewards and progression."),
+        "📊 Hunter Report": ("SYSTEM ANALYTICS · PERFORMANCE","Read your study telemetry and progression."),
+        "🤖 AI System Assistant": ("SYSTEM CORE · AI ASSISTANT","Use the assistant as your tactical study operator."),
+        "👥 Shadow Army": ("SHADOW COMMAND · COMPANIONS","Manage your companions and squad progression."),
+        "👑 Anime RPG": ("RPG SYSTEM · PROGRESSION","Characters, bosses, rewards and power progression."),
+        "🤝 Guild Hall": ("GUILD NETWORK · STUDY PARTY","Coordinate your study party and shared goals."),
+        "📚 Important PDFs": ("KNOWLEDGE ARCHIVE · DOCUMENTS","Organize the documents behind your study system."),
+        "🧬 Character & Power": ("AWAKENING CORE · CHARACTER","Upgrade attributes, class identity and hunter power."),
+        "⚙️ Settings": ("SYSTEM CONFIG · CONTROL PANEL","Tune your StudyBuddy system."),
+    }
+    title, subtitle = meta.get(current_page, ("SYSTEM MODULE · STUDYBUDDY","Interactive study system"))
+    st.markdown(
+        f"<div class='module-hud'><span class='module-hud-live'>● LIVE</span><div class='module-hud-main'>◈ {title}</div><div class='module-hud-sub'>{subtitle}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
 
 # ---------- Database ----------
 def db():
@@ -2001,17 +2060,31 @@ if page == "🏠 Hunter Dashboard":
     power = profile["xp"] + profile["focus"]*10 + profile["discipline"]*10 + profile["knowledge"]*10 + profile["energy"]*5
 
     st.markdown(
-        f"""<div class='dashboard-core'>
-          <div class='core-kicker'>SYSTEM ONLINE · HUNTER COMMAND CENTER</div>
-          <div class='core-title'>Welcome back, {profile['name']}.</div>
-          <div class='core-sub'>Your study world is connected here. Launch missions, train memory, enter dungeons, or use Gemma to decide your next move.</div>
-          <div class='core-stat-row'>
-            <div class='core-stat'><b>{rank}</b><span>RANK</span></div>
-            <div class='core-stat'><b>{level}</b><span>LEVEL</span></div>
-            <div class='core-stat'><b>{profile['xp']:,}</b><span>XP</span></div>
-            <div class='core-stat'><b>{power:,}</b><span>POWER</span></div>
-            <div class='core-stat'><b>{profile['streak']}</b><span>STREAK</span></div>
+        f"""<div class='video-command-hero'>
+          <video autoplay muted loop playsinline preload='auto'>
+            <source src='{HERO_VIDEO_URL}' type='video/mp4'>
+          </video>
+          <div class='video-scanline'></div>
+          <div class='video-glass'>
+            <div class='video-kicker'>SYSTEM ONLINE · CINEMATIC HUNTER COMMAND CENTER</div>
+            <div class='video-title'>Welcome back, {profile['name']}.</div>
+            <div class='video-copy'>Your study world is now presented as an interactive anime system: missions, dungeon combat, focus training, memory, Gemma intelligence and hunter progression in one command layer.</div>
+            <div class='video-hud-row'>
+              <div class='video-hud-chip'>RANK · {rank}</div>
+              <div class='video-hud-chip'>LEVEL · {level}</div>
+              <div class='video-hud-chip'>XP · {profile['xp']:,}</div>
+              <div class='video-hud-chip'>POWER · {power:,}</div>
+              <div class='video-hud-chip'>STREAK · {profile['streak']}</div>
+            </div>
           </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """<div class='motion-grid'>
+          <div class='motion-tile'><div class='motion-tile-icon'>⚡</div><div class='motion-tile-title'>IMPACT FEEDBACK</div><div class='motion-tile-copy'>XP, streak and completion actions use sharp motion cues.</div></div>
+          <div class='motion-tile'><div class='motion-tile-icon'>◈</div><div class='motion-tile-title'>DEPTH LAYERS</div><div class='motion-tile-copy'>Glass panels, depth, glow and parallax separate UI from video.</div></div>
+          <div class='motion-tile'><div class='motion-tile-icon'>◉</div><div class='motion-tile-title'>SYSTEM FLOW</div><div class='motion-tile-copy'>Every module shares the same cinematic HUD language.</div></div>
         </div>""",
         unsafe_allow_html=True,
     )
@@ -2027,7 +2100,7 @@ if page == "🏠 Hunter Dashboard":
         names = " · ".join(a["icon"] + " " + a["name"] for a in unlocked_events)
         st.markdown(f"<div class='reward-banner'>🏆 ACHIEVEMENT UNLOCKED · {names}</div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ LIVE COMMAND STATUS</div><div class='page-orbit-sub'>All systems synchronized · Local progression active</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
 
     commands = [
         ("⚔️","Dungeon Battles","Fight a knowledge boss.","⚔️ Dungeon Battles"),
@@ -2102,7 +2175,7 @@ if page == "🏠 Hunter Dashboard":
 
 # ---------- AI System Assistant ----------
 elif page == "🤖 AI System Assistant":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ SYSTEM CORE · AI ASSISTANT</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     model_name = get_selected_model()
     _ai_connected = has_api_key()
     st.markdown(
@@ -2239,7 +2312,7 @@ elif page == "🤖 AI System Assistant":
 
 # ---------- Gemma Study Lab ----------
 elif page == "✨ Gemma Study Lab":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ AI LAB · GEMMA INTELLIGENCE</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     _ai_ready = has_api_key()
     st.markdown(
         f"""<div class='hero'>
@@ -2343,7 +2416,7 @@ elif page == "✨ Gemma Study Lab":
 
 # ---------- Shadow Army ----------
 elif page == "👥 Shadow Army":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ SHADOW COMMAND · COMPANIONS</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     available = unlocked_shadows(profile["xp"])
     st.markdown(
         f"""<div class='hero'>
@@ -2441,7 +2514,7 @@ elif page == "👥 Shadow Army":
 
 # ---------- Schedule ----------
 elif page == "📅 Quest Schedule":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ MISSION CONTROL · QUEST DEPLOYMENT</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Mission Control</div>
@@ -2584,7 +2657,7 @@ elif page == "📅 Quest Schedule":
 
 # ---------- Dungeon Battles ----------
 elif page == "⚔️ Dungeon Battles":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ COMBAT INSTANCE · KNOWLEDGE RAID</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     video_uri = local_video_data_uri()
     if not st.session_state.get("dungeon_run"):
         st.markdown(
@@ -2782,7 +2855,7 @@ elif page == "⚔️ Dungeon Battles":
 
 # ---------- Focus Room ----------
 elif page == "⏱️ Focus Room":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ TRAINING CHAMBER · DEEP WORK</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Focus Chamber · Pomodoro Protocol</div>
@@ -2817,7 +2890,7 @@ elif page == "⏱️ Focus Room":
 
 # ---------- Revision Lab ----------
 elif page == "🧠 Revision Lab":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ MEMORY CORE · ACTIVE RECALL</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Memory Core · Spaced Repetition</div>
@@ -2889,7 +2962,7 @@ elif page == "🧠 Revision Lab":
 
 # ---------- Achievements ----------
 elif page == "🏆 Achievements":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ HUNTER ARCHIVE · MILESTONES</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Hunter Record · Collection System</div>
@@ -2915,7 +2988,7 @@ elif page == "🏆 Achievements":
 
 # ---------- Hunter Report ----------
 elif page == "📊 Hunter Report":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ SYSTEM ANALYTICS · PERFORMANCE</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Intelligence Report · Last 7 Days</div>
@@ -2968,7 +3041,7 @@ elif page == "📊 Hunter Report":
 
 # ---------- Guild Hall ----------
 elif page == "🤝 Guild Hall":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ GUILD NETWORK · STUDY PARTY</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     guild, members = guild_data()
     st.markdown(
         f"<div class='guild-banner'>"
@@ -3017,7 +3090,7 @@ elif page == "🤝 Guild Hall":
 
 # ---------- Important PDFs ----------
 elif page == "📚 Important PDFs":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ KNOWLEDGE ARCHIVE · DOCUMENTS</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Knowledge Archive</div>
@@ -3070,7 +3143,7 @@ elif page == "📚 Important PDFs":
 
 # ---------- Character / power ----------
 elif page == "🧬 Character & Power":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ AWAKENING CORE · CHARACTER</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>Awakening & Growth</div>
@@ -3120,12 +3193,12 @@ elif page == "🧬 Character & Power":
 
 # ---------- Anime RPG ----------
 elif page == "👑 Anime RPG":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ RPG SYSTEM · PROGRESSION</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     render_anime_rpg(DB_PATH, profile, award_xp, ask_ollama)
 
 # ---------- Settings ----------
 elif page == "⚙️ Settings":
-    st.markdown("<div class='page-orbit'><div class='page-orbit-main'>◈ SYSTEM CONFIG · CONTROL PANEL</div><div class='page-orbit-sub'>Interactive module · Progress synchronized with Hunter Core</div></div>", unsafe_allow_html=True)
+    render_module_hud(page)
     st.markdown(
         """<div class='hero'>
           <div class='hero-kicker'>System Configuration</div>
