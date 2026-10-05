@@ -254,7 +254,8 @@ def render(path,profile,award_xp,ask_ai_fn=None):
                 art=fetch_art(ch["image"]) if unlocked else None
                 if art: st.image(art,use_container_width=True)
                 else: st.markdown(f"<div class='rpg-card' style='height:220px;display:grid;place-items:center;font-size:60px'>{'🔒' if not unlocked else '⚔️'}</div>",unsafe_allow_html=True)
-                st.markdown(f"<div class='rpg-card character-card'><b>{html.escape(ch['name'])}</b><div class='rpg-muted'>{html.escape(ch['title'])}</div><span class='rpg-pill'>{ch['rarity']}</span><div class='rpg-muted' style='margin-top:6px'>Power {ch['power']:,}</div><div class='rpg-muted'>{'🟢 Awakened' if unlocked else f'🔒 Level {ch["unlock"]}'}</div></div>",unsafe_allow_html=True)
+                unlock_label = "🟢 Awakened" if unlocked else f"🔒 Level {ch['unlock']}"
+                st.markdown(f"<div class='rpg-card character-card'><b>{html.escape(ch['name'])}</b><div class='rpg-muted'>{html.escape(ch['title'])}</div><span class='rpg-pill'>{ch['rarity']}</span><div class='rpg-muted' style='margin-top:6px'>Power {ch['power']:,}</div><div class='rpg-muted'>{unlock_label}</div></div>",unsafe_allow_html=True)
                 if unlocked and st.button("Selected" if selected else "Select",disabled=selected,key=f"rpg_char_{ch['id']}",use_container_width=True):
                     save_character(path,ch["id"]); st.rerun()
         chosen=next(x for x in CHARACTERS if x["id"]==s["selected_character"])
