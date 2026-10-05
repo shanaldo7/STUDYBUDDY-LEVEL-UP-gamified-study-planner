@@ -17,6 +17,7 @@ from pypdf import PdfReader
 
 from anime_rpg import render as render_anime_rpg
 from ai_intelligence import render_ai_intelligence
+from progress_calendar import render_progress_calendar
 from ui_enhancements import inject_enhanced_ui, render_command_header, render_metrics, render_workflow, render_next_action
 from hunter_system import ensure_tables as ensure_hunter_tables, sync_level as sync_hunter_level, render_skill_tree, render_offline_indicator, render_offline_journal, focus_multiplier, combo_multiplier, revision_interval_multiplier, xp_multiplier, retry_call, wallet, grant_currency
 from study_engine import (
@@ -1166,6 +1167,7 @@ def render_module_hud(current_page):
         "🏆 Achievements": ("HUNTER ARCHIVE · MILESTONES","Track unlocks, rewards and progression."),
         "📊 Hunter Report": ("SYSTEM ANALYTICS · PERFORMANCE","Read your study telemetry and progression."),
         "🎯 Study Intelligence": ("ADAPTIVE CORE · PERSONALIZED LEARNING","Turn your activity into a daily plan, weak-topic radar and AI coaching."),
+        "📈 Progress Calendar": ("HUNTER HISTORY · CONSISTENCY MAP","See when your study activity actually happened across the last 84 days."),
         "🌳 Skill Tree": ("AWAKENING TREE · STUDY ABILITIES","Spend earned skill points on permanent study abilities."),
         "🎓 Exam Command Center": ("EXAM PROTOCOL · TACTICAL PREPARATION","Map your syllabus, measure mastery, identify risk and deploy an adaptive study plan."),
         "🤖 AI System Assistant": ("SYSTEM CORE · AI ASSISTANT","Use the assistant as your tactical study operator."),
@@ -1187,6 +1189,7 @@ def render_module_hud(current_page):
         "🏆 Achievements": (("SCAN","Check milestones"),("UNLOCK","Reveal reward"),("EQUIP","Show badge")),
         "📊 Hunter Report": (("SCAN","Read telemetry"),("COMPARE","Find trends"),("EVOLVE","Choose next move")),
         "🎯 Study Intelligence": (("SCAN","Read telemetry"),("PRIORITIZE","Find weakness"),("DEPLOY","Start next action")),
+        "📈 Progress Calendar": (("SCAN","Read activity"),("COMPARE","Spot gaps"),("EVOLVE","Protect consistency")),
         "🌳 Skill Tree": (("EARN","Gain points"),("UNLOCK","Awaken skill"),("EVOLVE","Improve study")),
         "🎓 Exam Command Center": (("MAP","Build syllabus"),("SCAN","Measure mastery"),("RAID","Attack weak topics")),
         "🤖 AI System Assistant": (("ASK","Send command"),("THINK","Process context"),("ACT","Execute advice")),
@@ -2146,6 +2149,7 @@ pages = [
     "🏆 Achievements",
     "📊 Hunter Report",
     "🎯 Study Intelligence",
+    "📈 Progress Calendar",
     "🌳 Skill Tree",
     "🎓 Exam Command Center",
     "🤖 AI System Assistant",
@@ -2490,6 +2494,11 @@ if page == "🏠 Hunter Dashboard":
             st.info("Penalty protocol is disabled.")
 
 # ---------- AI System Assistant ----------
+
+# ---------- Study Intelligence ----------
+elif page == "📈 Progress Calendar":
+    render_module_hud(page)
+    render_progress_calendar(db, profile)
 
 # ---------- Study Intelligence ----------
 elif page == "🎯 Study Intelligence":
