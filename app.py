@@ -18,7 +18,7 @@ from pypdf import PdfReader
 from anime_rpg import render as render_anime_rpg
 from ai_intelligence import render_ai_intelligence
 from ui_enhancements import inject_enhanced_ui, render_command_header, render_metrics, render_workflow, render_next_action
-from hunter_system import ensure_tables as ensure_hunter_tables, render_skill_tree, render_offline_indicator, render_offline_journal, focus_multiplier, combo_multiplier, xp_multiplier
+from hunter_system import ensure_tables as ensure_hunter_tables, sync_level as sync_hunter_level, render_skill_tree, render_offline_indicator, render_offline_journal, focus_multiplier, combo_multiplier, revision_interval_multiplier, xp_multiplier, retry_call
 from study_engine import (
     ensure_tables as ensure_adaptive_tables,
     render_exam_center,
@@ -1685,15 +1685,19 @@ Do not claim to have performed an app action unless the application explicitly p
 """ + "\n\n" + system_prompt.strip()
 
     try:
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
+        response = retry_call(
+            lambda: client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
                 system_instruction=quality_prompt,
                 temperature=0.2,
                 top_p=0.9,
-                max_output_tokens=2048,
+                    max_output_tokens=2048,
+                ),
             ),
+            attempts=3,
+            base_delay=0.5,
         )
         result = _extract_text_from_response(response)
         if not result:
@@ -1903,7 +1907,6 @@ def log_focus_session(minutes, mode, completion_id=None):
         except sqlite3.IntegrityError:
             return 0
     reward = max(5, min(40, round((minutes // 5 * 2) * focus_multiplier(db()))))
-    reward = int(round(reward * xp_multiplier(db())))
     award_xp(reward, minutes, source="focus", note=f"Completed {minutes}-minute focus session", completion_id=completion_id)
     evaluate_achievements()
     return reward
@@ -1938,6 +1941,7 @@ def review_card(card_id, rating):
             reps += 1
             interval = 4 if reps == 1 else max(2, round(interval * ease * 1.3))
             ease = min(3.2, ease + 0.10)
+        interval = max(1, round(interval * revision_interval_multiplier(db()))) if rating in ("Good", "Easy") else interval
         due = (date.today() + timedelta(days=interval)).isoformat()
         con.execute("""UPDATE revision_cards SET interval_days=?,ease=?,repetitions=?,due=?,last_reviewed=? WHERE id=?""",
                     (interval,ease,reps,due,_now(),card_id))
@@ -2302,6 +2306,7 @@ if new_achievements:
 profile = get_profile()
 rank = rank_for(profile["xp"])
 level = level_for(profile["xp"])
+sync_hunter_level(db, level, _now())
 
 # One-shot progression ceremony: appears immediately after the Dungeon victory rerun.
 render_shadow_unlock_ceremony()
