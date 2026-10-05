@@ -1,0 +1,2902 @@
+import os
+import sqlite3
+import hashlib
+import calendar
+import json
+import urllib.request
+import urllib.error
+import random
+import re
+import time
+import streamlit.components.v1 as components
+from datetime import date, datetime, timedelta
+from pathlib import Path
+
+import streamlit as st
+from pypdf import PdfReader
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+try:
+    from google import genai
+    from google.genai import types
+    _GENAI_AVAILABLE = True
+except Exception:
+    genai = None
+    types = None
+    _GENAI_AVAILABLE = False
+
+# ============================================================
+# STUDYBUDDY: LEVEL UP — gamified study planner
+# Data is stored locally beside this app in ./study_data
+# ============================================================
+APP_DIR = Path(__file__).resolve().parent
+DATA_DIR = APP_DIR / "study_data"
+PDF_DIR = DATA_DIR / "important_pdfs"
+DB_PATH = DATA_DIR / "studybuddy.db"
+PDF_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+st.set_page_config(page_title="StudyBuddy | Level Up", page_icon="⚔️", layout="wide")
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Design tokens ────────────────────────────────────────────── */
+:root {
+  --bg-0: #070a14;
+  --bg-1: #0b1122;
+  --bg-2: #111a30;
+  --line: rgba(126, 177, 235, 0.18);
+  --line-strong: rgba(126, 177, 235, 0.32);
+  --cyan: #5eead4;
+  --cyan-soft: #67e8f9;
+  --purple: #a78bfa;
+  --gold: #fbbf24;
+  --text: #e6eefb;
+  --text-dim: #b9c9e3;
+  --text-muted: #8899b3;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --shadow-sm: 0 4px 14px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.05);
+  --shadow-md: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  --shadow-lg: 0 18px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.07);
+}
+
+/* ── Base app ─────────────────────────────────────────────────── */
+.stApp {
+  background:
+    radial-gradient(1000px 550px at 8% -5%, #12294e 0%, transparent 55%),
+    radial-gradient(900px 500px at 92% 0%, #231246 0%, transparent 52%),
+    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 50%, #080c18 100%);
+  background-attachment: fixed;
+  color: var(--text);
+}
+.block-container {
+  max-width: 1400px;
+  padding-top: 1.4rem;
+  padding-bottom: 2.5rem;
+  padding-left: 1.6rem;
+  padding-right: 1.6rem;
+}
+html, body, [class*="css"], p, div, span, li {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.55;
+  letter-spacing: 0;
+}
+h1, h2, h3, h4 {
+  font-family: 'Orbitron', 'Rajdhani', sans-serif !important;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+h1 { font-size: clamp(1.5rem, 2.6vw, 2.2rem); font-weight: 800; }
+h2 { font-size: clamp(1.2rem, 2vw, 1.55rem); font-weight: 700; margin-top: 1.4rem; }
+h3 { font-size: 1.08rem; font-weight: 700; }
+p { font-size: 0.95rem; color: var(--text-dim); }
+hr { border-color: var(--line); margin: 1.2rem 0; }
+.muted { color: var(--text-muted); font-size: 0.82rem; line-height: 1.55; }
+
+/* ── Sidebar ──────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, rgba(6,10,20,.92) 0%, rgba(5,9,19,.88) 100%);
+  border-right: 1px solid var(--line);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 14px 0 40px rgba(0,0,0,.35);
+}
+[data-testid="stSidebar"] .block-container {
+  padding-top: 1.2rem;
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+}
+.sidebar-brand {
+  padding: 4px 6px 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.sidebar-brand-name {
+  font-family: 'Orbitron', 'Rajdhani', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #f3f8ff;
+  letter-spacing: 0.5px;
+}
+.sidebar-brand-name span { color: var(--cyan); }
+.sidebar-brand-sub {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-top: 2px;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] > div { gap: 2px; }
+[data-testid="stSidebar"] [data-testid="stRadio"] label {
+  padding: 8px 11px;
+  margin: 1px 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: all .18s ease-out;
+  font-size: 0.92rem;
+  font-weight: 500;
+  min-height: 38px;
+  align-items: center;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+  background: rgba(94, 234, 212, 0.06);
+  border-color: rgba(94, 234, 212, 0.18);
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+  background: linear-gradient(110deg, rgba(22,72,106,.55), rgba(60,38,112,.5));
+  border-color: rgba(94, 234, 212, 0.38);
+  box-shadow: inset 3px 0 0 var(--cyan), 0 0 14px rgba(94,234,212,.08);
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p {
+  color: #eaf6ff !important;
+  font-weight: 600;
+}
+.sidebar-section-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 14px 8px 6px;
+}
+.sidebar-hunter {
+  padding: 10px 12px;
+  border: 1px solid rgba(74,222,128,.18);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 25, 18, .55);
+  margin-top: 8px;
+}
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74,222,128,.6);
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.ai-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border: 1px solid var(--line);
+  margin-top: 6px;
+}
+.ai-status.connected {
+  background: rgba(15, 40, 32, 0.55);
+  border-color: rgba(74, 222, 128, 0.28);
+  color: #86efac;
+}
+.ai-status.connected .status-dot {
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74,222,128,.6);
+}
+.ai-status.disconnected {
+  background: rgba(55, 26, 26, 0.4);
+  border-color: rgba(248, 113, 113, 0.28);
+  color: #fca5a5;
+}
+.ai-status.disconnected .status-dot {
+  background: #f87171;
+  box-shadow: 0 0 8px rgba(248,113,113,.55);
+}
+
+/* ── Hero / page header ───────────────────────────────────────── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 26px;
+  border: 1px solid rgba(94, 234, 212, 0.28);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 92% 50%, rgba(167,139,250,.18), transparent 40%),
+    linear-gradient(115deg, rgba(14, 38, 66, .82), rgba(30, 22, 58, .78));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-md);
+  transition: border-color .25s ease;
+}
+.hero:hover { border-color: rgba(94, 234, 212, 0.48); }
+.hero-kicker {
+  color: var(--cyan);
+  text-transform: uppercase;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  opacity: 0.95;
+}
+.hero-title {
+  font-family: 'Orbitron', 'Rajdhani', sans-serif;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  font-weight: 800;
+  margin: 6px 0 8px;
+  color: #f8fbff;
+  letter-spacing: 0.2px;
+}
+.hero-sub {
+  color: var(--text-dim);
+  margin: 0;
+  font-size: 0.94rem;
+  max-width: 65ch;
+}
+.hero-meta {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.rank {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(251,191,36,.4);
+  color: #fde68a;
+  background: rgba(62, 44, 12, .55);
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.8px;
+}
+.system-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border: 1px solid rgba(94,234,212,.22);
+  border-radius: 999px;
+  background: rgba(8, 24, 32, .55);
+  color: #bff1e6;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.5px;
+}
+.system-chip.purple {
+  border-color: rgba(167,139,250,.25);
+  background: rgba(24, 14, 48, .55);
+  color: #ddd6fe;
+}
+
+/* ── Panels, cards, stats ────────────────────────────────────── */
+.panel,
+.stat,
+.quest,
+.achievement-card,
+[data-testid="stMetric"],
+.system-panel,
+.shadow-reaction,
+.system-next,
+.dungeon-result,
+.review-card,
+.level-up-banner,
+.reward-banner,
+.timer-shell,
+.guild-banner {
+  background: linear-gradient(160deg, rgba(22,35,61,.62), rgba(12,18,34,.62));
+  border: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-sm);
+  transition: border-color .2s ease, transform .2s ease, background .2s ease;
+}
+.panel {
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-lg);
+}
+.panel:hover,
+.stat:hover,
+.quest:hover,
+.achievement-card:hover,
+[data-testid="stMetric"]:hover {
+  border-color: var(--line-strong);
+  background: linear-gradient(160deg, rgba(28,45,78,.7), rgba(16,24,44,.7));
+}
+.panel-title {
+  font-family: 'Orbitron', 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #f0f6ff;
+  margin-bottom: 10px;
+  letter-spacing: 0.3px;
+}
+.stat {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.stat-label {
+  color: var(--text-muted);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-family: 'Orbitron', 'Rajdhani', sans-serif;
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: #f5f9ff;
+  line-height: 1.15;
+}
+[data-testid="stMetric"] {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+}
+[data-testid="stMetric"] label {
+  color: var(--text-muted) !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600 !important;
+}
+[data-testid="stMetricValue"] {
+  color: #f4f8ff !important;
+  font-family: 'Orbitron', 'Rajdhani', sans-serif;
+  font-weight: 700 !important;
+  font-size: 1.65rem !important;
+}
+[data-testid="stMetricDelta"] { font-size: 0.78rem; }
+
+/* ── Progress bars ────────────────────────────────────────────── */
+.xp-track, .hp-track, .day-bar {
+  border-radius: 99px;
+  background: #162440;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.05);
+}
+.xp-track { height: 8px; margin: 8px 0 4px; }
+.hp-track { height: 12px; margin: 12px 0; }
+.day-bar  { height: 7px; flex: 1; }
+.xp-fill, .day-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22d3ee, #8b5cf6);
+  border-radius: 99px;
+  box-shadow: 0 0 10px rgba(34,211,238,.35);
+}
+.hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ef4444, #f97316);
+  box-shadow: 0 0 10px rgba(239,68,68,.4);
+  transition: width .45s ease;
+}
+.stProgress > div > div > div > div {
+  background: linear-gradient(90deg, #22d3ee, #a78bfa) !important;
+  box-shadow: 0 0 8px rgba(34,211,238,.3);
+  border-radius: 99px;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+div.stButton > button,
+[data-testid="stFormSubmitButton"] button {
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(94,234,212,.28);
+  background: linear-gradient(135deg, rgba(24,54,82,.8), rgba(44,30,82,.78));
+  color: #eaf3ff;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.45rem 1rem;
+  min-height: 38px;
+  transition: all .18s ease-out;
+  box-shadow: 0 3px 12px rgba(0,0,0,.22);
+  letter-spacing: 0.1px;
+}
+div.stButton > button:hover,
+[data-testid="stFormSubmitButton"] button:hover {
+  border-color: var(--cyan);
+  color: #fff;
+  transform: translateY(-1.5px);
+  background: linear-gradient(135deg, #17486e, #4a3283);
+  box-shadow: 0 7px 20px rgba(34,211,238,.18);
+}
+div.stButton > button:active,
+[data-testid="stFormSubmitButton"] button:active {
+  transform: translateY(0);
+}
+div.stButton > button[kind="primary"],
+[data-testid="stFormSubmitButton"] button[kind="primary"] {
+  border-color: rgba(94,234,212,.45);
+  background: linear-gradient(135deg, rgba(20,88,116,.9), rgba(76,45,140,.88));
+  box-shadow: 0 4px 18px rgba(34,211,238,.15);
+}
+div.stButton > button[kind="primary"]:hover,
+[data-testid="stFormSubmitButton"] button[kind="primary"]:hover {
+  border-color: var(--cyan);
+  background: linear-gradient(135deg, #0e6b7c, #5c3aa5);
+}
+
+/* ── Forms & inputs ───────────────────────────────────────────── */
+[data-testid="stForm"] {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, rgba(18,30,54,.5), rgba(12,17,32,.5));
+  backdrop-filter: blur(10px);
+}
+label, [data-testid="stWidgetLabel"] p {
+  color: var(--text-dim) !important;
+  font-weight: 600 !important;
+  font-size: 0.84rem !important;
+  letter-spacing: 0.1px !important;
+}
+input, textarea, [data-baseweb="select"] > div,
+[data-baseweb="input"] input,
+[data-baseweb="textarea"] textarea,
+.stTextInput input, .stTextArea textarea, .stNumberInput input {
+  background: rgba(9, 16, 30, .78) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text) !important;
+  font-size: 0.9rem !important;
+  transition: border-color .15s, box-shadow .15s;
+}
+input::placeholder, textarea::placeholder {
+  color: #6a7b95 !important;
+  font-size: 0.88rem;
+}
+input:focus, textarea:focus,
+[data-baseweb="select"] > div:focus-within,
+.stTextInput input:focus, .stTextArea textarea:focus {
+  border-color: var(--cyan) !important;
+  box-shadow: 0 0 0 1px rgba(94,234,212,.35), 0 0 14px rgba(94,234,212,.08) !important;
+  outline: none !important;
+}
+[data-testid="stExpander"] {
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius-lg) !important;
+  background: rgba(12,20,38,.45) !important;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+[data-testid="stExpander"] details summary p {
+  font-weight: 600;
+  color: #e0ebff;
+}
+[data-baseweb="select"] ul {
+  background: rgba(14,22,40,.96) !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--radius-sm) !important;
+  backdrop-filter: blur(12px);
+}
+[data-baseweb="select"] ul li {
+  color: var(--text-dim) !important;
+}
+[data-baseweb="select"] ul li:hover {
+  background: rgba(94,234,212,.1) !important;
+  color: #fff !important;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+[data-testid="stTabs"] {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+[data-testid="stTabs"] [role="tablist"] { gap: 2px; }
+[data-testid="stTabs"] [role="tab"] {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 10px 16px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.15px;
+  min-height: 40px;
+}
+[data-testid="stTabs"] [role="tab"]:hover {
+  color: var(--cyan-soft) !important;
+}
+[data-testid="stTabs"] [aria-selected="true"] {
+  color: var(--cyan) !important;
+  background: rgba(94,234,212,.06);
+  border-bottom: 2px solid var(--cyan);
+}
+
+/* ── Chat UI ──────────────────────────────────────────────────── */
+[data-testid="stChatMessage"] {
+  background: linear-gradient(160deg, rgba(20,33,57,.6), rgba(14,20,36,.6));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(10px);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+}
+[data-testid="stChatMessage"][data-testid="chat-message-user"] {
+  background: linear-gradient(160deg, rgba(14,55,68,.65), rgba(48,30,90,.6));
+  border-color: rgba(94,234,212,.22);
+}
+[data-testid="stChatInput"] textarea {
+  background: rgba(9,16,30,.82) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius-sm) !important;
+}
+[data-testid="stChatInput"] textarea:focus {
+  border-color: var(--cyan) !important;
+}
+.chat-empty {
+  padding: 32px 24px;
+  text-align: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: rgba(12,20,38,.35);
+}
+.chat-empty-icon { font-size: 2.2rem; opacity: .8; }
+.chat-empty-title {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #e8f3ff;
+  margin: 8px 0 4px;
+}
+.chat-suggestion {
+  display: inline-block;
+  padding: 7px 13px;
+  margin: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(20,32,56,.55);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all .18s;
+}
+.chat-suggestion:hover {
+  border-color: var(--cyan);
+  color: var(--cyan-soft);
+  background: rgba(94,234,212,.08);
+}
+
+/* ── Quest rows ───────────────────────────────────────────────── */
+.quest {
+  padding: 12px 16px;
+  margin: 7px 0;
+  border-radius: var(--radius-md);
+}
+.quest-done { opacity: .6; border-color: rgba(52,120,106,.4); }
+.quest-title { font-weight: 600; color: #f0f6ff; }
+
+/* ── Calendar ─────────────────────────────────────────────────── */
+[class*="st-key-cal_"] { min-width: 0; }
+[class*="st-key-cal_"] button {
+  height: 76px;
+  min-height: 76px;
+  padding: 7px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: linear-gradient(155deg, rgba(22,39,68,.72), rgba(11,18,34,.72));
+  color: #dce9fb;
+  white-space: pre-line;
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  transition: all .18s ease;
+}
+[class*="st-key-cal_"] button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(94,234,212,.45);
+  background: linear-gradient(155deg, #1a4469, #34265a);
+}
+[class*="st-key-cal_"] button[kind="primary"] {
+  border-color: var(--cyan);
+  background: linear-gradient(145deg, #135268, #48317d);
+  color: white;
+  box-shadow: 0 0 0 1px rgba(94,234,212,.3), 0 5px 18px rgba(34,211,238,.2);
+}
+
+/* ── Achievements ─────────────────────────────────────────────── */
+.achievement-card {
+  min-height: 148px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+}
+.achievement-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(94,234,212,.45);
+  box-shadow: 0 12px 28px rgba(0,0,0,.4), 0 0 16px rgba(94,234,212,.1);
+}
+.achievement-locked { filter: grayscale(.85); opacity: .45; }
+.achievement-icon { font-size: 1.9rem; }
+.achievement-name {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: #eef6ff;
+  margin-top: 7px;
+}
+
+/* ── System / RPG extras ──────────────────────────────────────── */
+.level-up-banner, .reward-banner {
+  margin: 14px 0;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(167,139,250,.38);
+  background: linear-gradient(100deg, rgba(48,29,95,.65), rgba(16,45,84,.65));
+  box-shadow: 0 0 22px rgba(139,92,246,.12), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.level-up-kicker {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: var(--cyan);
+  letter-spacing: 2.2px;
+}
+.level-up-title {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: white;
+  margin: 5px 0;
+  letter-spacing: 0.2px;
+}
+.reward-banner {
+  color: #fde68a;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 1px;
+}
+.system-panel {
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  border-color: rgba(94,234,212,.22);
+}
+.system-next {
+  margin-top: 12px;
+  padding: 13px 15px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(167,139,250,.22);
+  background: linear-gradient(135deg, rgba(26,22,56,.55), rgba(14,34,56,.55));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.shadow-reaction {
+  padding: 13px 16px;
+  border-radius: var(--radius-md);
+  border-color: rgba(94,234,212,.2);
+  background: linear-gradient(135deg, rgba(7,24,40,.6), rgba(32,18,58,.6));
+  margin-bottom: 14px;
+}
+.shadow-reaction span {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  font-size: 0.7rem;
+  color: var(--purple);
+  letter-spacing: 1.5px;
+  display: block;
+  margin-bottom: 5px;
+}
+.shadow-reaction b { color: #eaf3ff; font-weight: 600; }
+
+.timer-shell, .dungeon-result, .guild-banner {
+  padding: 22px;
+  border-radius: var(--radius-xl);
+}
+.timer-shell {
+  border-color: rgba(94,234,212,.25);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(34,211,238,.12), transparent 45%),
+    linear-gradient(150deg, rgba(11,26,48,.8), rgba(20,17,43,.8));
+  box-shadow: var(--shadow-md);
+}
+.dungeon-result {
+  text-align: center;
+  border-color: rgba(251,191,36,.35);
+  background: linear-gradient(150deg, rgba(58,43,16,.65), rgba(23,27,45,.65));
+  box-shadow: 0 0 28px rgba(251,191,36,.08);
+}
+.guild-banner {
+  border-color: rgba(94,234,212,.28);
+  background: linear-gradient(115deg, rgba(16,47,79,.7), rgba(41,22,77,.7));
+  box-shadow: var(--shadow-md);
+}
+.guild-code {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: var(--cyan);
+  letter-spacing: 2px;
+}
+.focus-badge {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  color: var(--cyan);
+  text-transform: uppercase;
+}
+.review-card {
+  padding: 24px 26px;
+  border-radius: var(--radius-xl);
+  border-color: rgba(167,139,250,.25);
+  box-shadow: var(--shadow-md);
+  min-height: 220px;
+}
+.review-front {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: white;
+  line-height: 1.35;
+}
+.review-back {
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  line-height: 1.65;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  margin-top: 14px;
+}
+
+/* ── Dungeon boss art ─────────────────────────────────────────── */
+.dungeon-boss-art {
+  position: relative;
+  overflow: hidden;
+  height: 160px;
+  margin: 8px 0 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--boss-glow), transparent 55%);
+  background:
+    radial-gradient(ellipse at 50% 82%, color-mix(in srgb, var(--boss-glow), transparent 70%), transparent 58%),
+    linear-gradient(150deg, #080d1b, #18102a);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 40px color-mix(in srgb, var(--boss-glow), transparent 85%);
+}
+.boss-aura {
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: var(--boss-glow);
+  opacity: .14;
+  filter: blur(24px);
+  animation: bossPulse 2.8s ease-in-out infinite;
+}
+.boss-art-emoji {
+  position: relative;
+  font-size: 84px;
+  line-height: 1;
+  filter: drop-shadow(0 0 16px var(--boss-glow));
+  animation: bossFloat 3.5s ease-in-out infinite;
+}
+.boss-art-label {
+  position: absolute;
+  bottom: 10px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.65rem;
+  letter-spacing: 2px;
+  color: var(--boss-glow);
+}
+.dungeon-boss {
+  padding: 20px 22px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(248,113,113,.35);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(127,29,29,.28), transparent 50%),
+    linear-gradient(150deg, rgba(25,12,25,.9), rgba(10,17,31,.9));
+  box-shadow: var(--shadow-lg), 0 0 24px rgba(239,68,68,.1);
+  text-align: center;
+}
+.boss-icon {
+  font-size: 60px;
+  filter: drop-shadow(0 0 16px rgba(239,68,68,.55));
+  animation: bossFloat 3.5s ease-in-out infinite;
+}
+.boss-name {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: #fff;
+  text-shadow: 0 0 14px rgba(239,68,68,.3);
+}
+.combo {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 800;
+  font-size: 1.35rem;
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(251,191,36,.35);
+}
+
+/* ── Hunter report ────────────────────────────────────────────── */
+.report-day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+}
+
+/* ── Animations (respect reduced motion) ──────────────────────── */
+@keyframes bossPulse { 0%,100% { transform: scale(.85); opacity: .12; } 50% { transform: scale(1.15); opacity: .22; } }
+@keyframes bossFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .hero-kicker { animation: none; }
+}
+
+/* ── Responsive tweaks ────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .block-container { padding-left: 1rem; padding-right: 1rem; padding-top: 1rem; }
+  [class*="st-key-cal_"] button { height: 62px; min-height: 62px; font-size: 10px; padding: 5px 3px; }
+  .hero { padding: 18px 18px; }
+  .stat-value, [data-testid="stMetricValue"] { font-size: 1.4rem; }
+  .panel { padding: 15px 16px; }
+  .stat { padding: 12px 13px; min-height: 74px; }
+}
+@media (max-width: 560px) {
+  .hero-title { font-size: 1.25rem; }
+  .boss-art-emoji { font-size: 62px; }
+  .dungeon-boss-art { height: 130px; }
+  .achievement-card { min-height: 132px; padding: 13px; }
+  .system-chip, .rank { font-size: 0.66rem; padding: 3px 9px; }
+}
+
+/* ── Scrollbar polish ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(94,234,212,.15);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(94,234,212,.28); background-clip: padding-box; border: 2px solid transparent; }
+</style>
+""", unsafe_allow_html=True)
+
+# ---------- Database ----------
+def db():
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    return con
+
+with db() as con:
+    con.execute("""CREATE TABLE IF NOT EXISTS profile (
+        id INTEGER PRIMARY KEY CHECK(id=1), name TEXT NOT NULL DEFAULT 'Hunter',
+        xp INTEGER NOT NULL DEFAULT 0, focus INTEGER NOT NULL DEFAULT 1,
+        discipline INTEGER NOT NULL DEFAULT 1, knowledge INTEGER NOT NULL DEFAULT 1,
+        energy INTEGER NOT NULL DEFAULT 1, streak INTEGER NOT NULL DEFAULT 0,
+        last_study TEXT, title TEXT NOT NULL DEFAULT 'New Awakening'
+    )""")
+    con.execute("INSERT OR IGNORE INTO profile(id) VALUES(1)")
+    # Add the character field for databases created by an earlier version.
+    profile_columns = {row[1] for row in con.execute("PRAGMA table_info(profile)").fetchall()}
+    if "character" not in profile_columns:
+        con.execute("ALTER TABLE profile ADD COLUMN character TEXT NOT NULL DEFAULT 'Shadow Hunter'")
+    if "penalty_enabled" not in profile_columns:
+        con.execute("ALTER TABLE profile ADD COLUMN penalty_enabled INTEGER NOT NULL DEFAULT 1")
+    if "penalty_amount" not in profile_columns:
+        con.execute("ALTER TABLE profile ADD COLUMN penalty_amount INTEGER NOT NULL DEFAULT 10")
+    con.execute("""CREATE TABLE IF NOT EXISTS quests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, subject TEXT,
+        due TEXT NOT NULL, minutes INTEGER NOT NULL, difficulty TEXT NOT NULL,
+        reward INTEGER NOT NULL, completed INTEGER NOT NULL DEFAULT 0,
+        completed_at TEXT, penalty_applied INTEGER NOT NULL DEFAULT 0
+    )""")
+    quest_columns = {row[1] for row in con.execute("PRAGMA table_info(quests)").fetchall()}
+    if "penalty_applied" not in quest_columns:
+        con.execute("ALTER TABLE quests ADD COLUMN penalty_applied INTEGER NOT NULL DEFAULT 0")
+        # Existing overdue quests are grandfathered in when this feature is first added.
+        con.execute("UPDATE quests SET penalty_applied=1 WHERE due < ? AND completed=0", (date.today().isoformat(),))
+    con.execute("""CREATE TABLE IF NOT EXISTS penalty_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, quest_id INTEGER, amount INTEGER NOT NULL,
+        applied_on TEXT NOT NULL, note TEXT NOT NULL
+    )""")
+    con.execute("""CREATE TABLE IF NOT EXISTS pdfs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, subject TEXT,
+        filename TEXT NOT NULL, stored_path TEXT NOT NULL, file_hash TEXT UNIQUE,
+        added_at TEXT NOT NULL
+    )""")
+    con.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    # New local-first RPG tables. Existing data is never removed.
+    con.execute("""CREATE TABLE IF NOT EXISTS xp_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, amount INTEGER NOT NULL, source TEXT NOT NULL,
+        note TEXT NOT NULL, happened_at TEXT NOT NULL
+    )""")
+    con.execute("""CREATE TABLE IF NOT EXISTS focus_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, started_at TEXT NOT NULL, minutes INTEGER NOT NULL,
+        mode TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 1
+    )""")
+    con.execute("""CREATE TABLE IF NOT EXISTS revision_cards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT, front TEXT NOT NULL, back TEXT NOT NULL,
+        interval_days INTEGER NOT NULL DEFAULT 1, ease REAL NOT NULL DEFAULT 2.5, repetitions INTEGER NOT NULL DEFAULT 0,
+        due TEXT NOT NULL, last_reviewed TEXT, created_at TEXT NOT NULL
+    )""")
+    con.execute("""CREATE TABLE IF NOT EXISTS review_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, card_id INTEGER NOT NULL, rating TEXT NOT NULL,
+        reviewed_at TEXT NOT NULL
+    )""")
+    con.execute("""CREATE TABLE IF NOT EXISTS dungeon_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT NOT NULL, difficulty TEXT NOT NULL,
+        questions INTEGER NOT NULL, correct INTEGER NOT NULL, xp_earned INTEGER NOT NULL,
+        perfect INTEGER NOT NULL DEFAULT 0, played_at TEXT NOT NULL
+    )""")
+    con.execute("""CREATE TABLE IF NOT EXISTS achievements (
+        id TEXT PRIMARY KEY, unlocked_at TEXT NOT NULL
+    )""")
+    con.execute("""CREATE TABLE IF NOT EXISTS guild (
+        id INTEGER PRIMARY KEY CHECK(id=1), name TEXT NOT NULL DEFAULT 'Awakened Scholars',
+        motto TEXT NOT NULL DEFAULT 'Study together. Rise together.', code TEXT NOT NULL DEFAULT '',
+        weekly_goal INTEGER NOT NULL DEFAULT 500, created_at TEXT NOT NULL
+    )""")
+    con.execute("INSERT OR IGNORE INTO guild(id, created_at) VALUES(1, ?)", (datetime.now().isoformat(timespec="seconds"),))
+    con.execute("""CREATE TABLE IF NOT EXISTS guild_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'Hunter',
+        weekly_xp INTEGER NOT NULL DEFAULT 0, focus_minutes INTEGER NOT NULL DEFAULT 0,
+        last_checkin TEXT, added_at TEXT NOT NULL
+    )""")
+
+RANKS = [(0,"E-RANK"),(150,"D-RANK"),(400,"C-RANK"),(800,"B-RANK"),(1400,"A-RANK"),(2200,"S-RANK"),(3500,"NATIONAL LEVEL")]
+def rank_for(xp):
+    rank = RANKS[0][1]
+    for threshold, name in RANKS:
+        if xp >= threshold: rank = name
+    return rank
+
+def level_for(xp):
+    return xp // 100 + 1
+
+def xp_progress(xp):
+    return xp % 100
+
+# Shadow soldiers unlock as the player levels up. The AI gives each one a
+# distinct study-support personality; it does not control game rewards.
+SHADOW_ARMY = [
+    {"id":"igris", "name":"Igris", "title":"Blood-Red Commander", "emoji":"⚔️", "level":1,
+     "ability":"Discipline Protocol", "description":"Turns a big goal into a strict, manageable study mission.",
+     "persona":"You are Igris, a formal, disciplined shadow knight and study companion. Speak with calm, loyal, concise commander-like language. Help the player break work into clear steps and stay disciplined. Never claim to change app data or award XP."},
+    {"id":"tank", "name":"Tank", "title":"Frost Bear", "emoji":"🐻", "level":2,
+     "ability":"Memory Guard", "description":"Helps the player remember concepts using recall prompts and simple examples.",
+     "persona":"You are Tank, a powerful but friendly shadow bear who supports the hunter's learning. Use simple explanations, memory tricks, and short recall questions. Be warm and encouraging. Never claim to change app data or award XP."},
+    {"id":"iron", "name":"Iron", "title":"Armored Guardian", "emoji":"🛡️", "level":3,
+     "ability":"Focus Shield", "description":"Helps remove distractions and build a short, focused work session.",
+     "persona":"You are Iron, an energetic armored shadow soldier. Help the player focus, overcome procrastination, and choose one practical next action. Use a playful, confident tone without being rude. Never claim to change app data or award XP."},
+    {"id":"tusk", "name":"Tusk", "title":"High Orc Shaman", "emoji":"🔮", "level":4,
+     "ability":"Knowledge Spell", "description":"Creates practice questions and explains difficult topics in beginner-friendly language.",
+     "persona":"You are Tusk, a wise shadow shaman and study companion. Help with concepts, create short practice questions, and explain things in beginner-friendly steps. If the player asks for factual help, be accurate and admit uncertainty. Never claim to change app data or award XP."},
+    {"id":"beru", "name":"Beru", "title":"Ant King", "emoji":"👑", "level":5,
+     "ability":"Royal Tutor", "description":"Acts as an enthusiastic personal tutor: quizzes, gives feedback, and celebrates progress.",
+     "persona":"You are Beru, an intensely loyal, enthusiastic shadow soldier and personal study tutor. Address the player as your honored master occasionally, but keep it friendly and not excessive. Offer quizzes, check understanding, and celebrate effort. Be concise and accurate; do not invent facts. Never claim to change app data or award XP."},
+]
+
+# Official Solo Leveling Season 2 shadow promotional art. Images load from the
+# anime website when the app has internet access. Keep local fallback avatars.
+SHADOW_IMAGES = {
+    "igris": "https://sololeveling-anime.net/assets/img/special/shadows-visual/igrit.jpg",
+    "tank": "https://sololeveling-anime.net/assets/img/special/shadows-visual/tank.jpg",
+    "iron": "https://sololeveling-anime.net/assets/img/special/shadows-visual/iron.jpg",
+    "tusk": "https://sololeveling-anime.net/assets/img/special/shadows-visual/kiba.jpg",
+    "beru": "https://sololeveling-anime.net/assets/img/special/shadows-visual/beru.jpg",
+}
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def load_shadow_image(url):
+    """Fetch official character art safely; return None if offline/unavailable."""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "StudyBuddy/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            content_type = response.headers.get("Content-Type", "")
+            if not content_type.startswith("image/"):
+                return None
+            return response.read()
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return None
+
+def unlocked_shadows(xp):
+    current_level = level_for(xp)
+    return [soldier for soldier in SHADOW_ARMY if current_level >= soldier["level"]]
+
+def get_profile():
+    with db() as con: return dict(con.execute("SELECT * FROM profile WHERE id=1").fetchone())
+
+def award_xp(reward, minutes, source="quest", note="Study reward"):
+    today = date.today().isoformat()
+    reward = max(0, int(reward))
+    with db() as con:
+        p = con.execute("SELECT * FROM profile WHERE id=1").fetchone()
+        streak = p["streak"]
+        last = p["last_study"]
+        if last != today:
+            if last == (date.today() - timedelta(days=1)).isoformat():
+                streak += 1
+            else:
+                streak = 1
+        old_level = level_for(p["xp"])
+        con.execute("""UPDATE profile SET xp=xp+?, focus=MIN(focus+1,99),
+            discipline=MIN(discipline+1,99), knowledge=MIN(knowledge+?,99),
+            energy=MIN(energy+1,99), streak=?, last_study=? WHERE id=1""",
+            (reward, max(1, int(minutes) // 30), streak, today))
+        con.execute("INSERT INTO xp_log(amount,source,note,happened_at) VALUES(?,?,?,?)",
+                    (reward, source, note, datetime.now().isoformat(timespec="seconds")))
+        new_level = level_for(p["xp"] + reward)
+    if new_level > old_level:
+        st.session_state["level_up_event"] = {"old": old_level, "new": new_level}
+    return reward
+
+
+def complete_quest(qid):
+    q = None
+    with db() as con:
+        q = con.execute("SELECT * FROM quests WHERE id=? AND completed=0", (qid,)).fetchone()
+        if q:
+            con.execute("UPDATE quests SET completed=1, completed_at=? WHERE id=?", (datetime.now().isoformat(timespec="seconds"), qid))
+    # Award XP only after the quest update transaction has committed.
+    if q:
+        award_xp(q["reward"], q["minutes"])
+        return q["reward"]
+    return 0
+
+
+def apply_overdue_penalties():
+    """Apply one-time, configurable XP penalties to missed quests, with a daily cap."""
+    today = date.today().isoformat()
+    with db() as con:
+        profile_row = con.execute("SELECT penalty_enabled, penalty_amount, xp FROM profile WHERE id=1").fetchone()
+        if not profile_row or not profile_row["penalty_enabled"]:
+            return 0, 0
+        amount = max(0, min(50, int(profile_row["penalty_amount"])))
+        if amount == 0:
+            return 0, 0
+        already_today = con.execute("SELECT COALESCE(SUM(amount),0) FROM penalty_log WHERE applied_on=?", (today,)).fetchone()[0]
+        daily_remaining = max(0, 30 - int(already_today))
+        if daily_remaining <= 0:
+            return 0, 0
+        missed = con.execute("SELECT id,title FROM quests WHERE completed=0 AND due < ? AND penalty_applied=0 ORDER BY due,id", (today,)).fetchall()
+        total_lost = 0
+        count = 0
+        for quest in missed:
+            requested_loss = min(amount, daily_remaining - total_lost)
+            # Mark each missed quest exactly once. If today's cap is reached, no XP is lost for remaining items.
+            con.execute("UPDATE quests SET penalty_applied=1 WHERE id=?", (quest["id"],))
+            current_xp = con.execute("SELECT xp FROM profile WHERE id=1").fetchone()[0]
+            actual_loss = min(requested_loss, current_xp)
+            if actual_loss > 0:
+                con.execute("UPDATE profile SET xp=xp-? WHERE id=1", (actual_loss,))
+                note = "Missed quest: " + quest["title"]
+                con.execute("INSERT INTO penalty_log(quest_id,amount,applied_on,note) VALUES(?,?,?,?)",
+                            (quest["id"], actual_loss, today, note))
+                con.execute("INSERT INTO xp_log(amount,source,note,happened_at) VALUES(?,?,?,?)",
+                            (-actual_loss, "penalty", note, datetime.now().isoformat(timespec="seconds")))
+                total_lost += actual_loss
+                count += 1
+        return count, total_lost
+
+# Run missed-quest checks on app load. The feature can be disabled in Settings.
+_penalty_count, _penalty_total = apply_overdue_penalties()
+if _penalty_total:
+    st.toast(f"System penalty: -{_penalty_total} XP for {_penalty_count} missed quest(s).", icon="⚠️")
+
+# ---------- Hosted AI (Google Gemma via Gemini API) ----------
+DEFAULT_GEMMA_MODEL = "gemma-4-26b-a4b-it"
+FALLBACK_GEMMA_MODEL = "gemma-4-31b-it"
+SUPPORTED_GEMMA_MODELS = [
+    "gemma-4-26b-a4b-it",
+    "gemma-4-31b-it",
+]
+
+
+def resolve_api_key():
+    """Resolve the API key from secure sources only. Never commit or log the return value.
+
+    Priority order:
+    1. Streamlit Cloud st.secrets['GEMINI_API_KEY']
+    2. Environment variable GEMINI_API_KEY
+    3. User-provided session state (sidebar input, ephemeral for this run)
+    """
+    try:
+        secrets_key = st.secrets.get("GEMINI_API_KEY") if hasattr(st, "secrets") else None
+        if secrets_key and isinstance(secrets_key, str) and secrets_key.strip():
+            return secrets_key.strip()
+    except Exception:
+        pass
+    env_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if env_key:
+        return env_key
+    session_key = st.session_state.get("gemini_api_key", "").strip() if hasattr(st, "session_state") else ""
+    if session_key:
+        return session_key
+    return ""
+
+
+def has_api_key():
+    return bool(resolve_api_key())
+
+
+def get_configured_genai():
+    """Return a current Google Gen AI client configured with the secure API key."""
+    if not _GENAI_AVAILABLE:
+        return None
+    key = resolve_api_key()
+    if not key:
+        return None
+    try:
+        return genai.Client(api_key=key, http_options={"api_version": "v1"})
+    except Exception:
+        return None
+
+
+def _extract_text_from_response(response):
+    """Extract generated text from response.text or candidate content parts."""
+    direct = (getattr(response, "text", "") or "").strip()
+    if direct:
+        return direct
+    chunks = []
+    try:
+        for candidate in getattr(response, "candidates", []) or []:
+            content = getattr(candidate, "content", None)
+            for part in getattr(content, "parts", []) or []:
+                value = getattr(part, "text", None)
+                if value:
+                    chunks.append(str(value))
+    except Exception:
+        pass
+    return "\n".join(chunks).strip()
+
+
+def _response_diagnostic(response):
+    """Return a useful reason when the API returns no text."""
+    try:
+        feedback = getattr(response, "prompt_feedback", None)
+        block_reason = getattr(feedback, "block_reason", None) if feedback else None
+        if block_reason and str(block_reason).lower() not in ("none", "unspecified", "block_reason_unspecified"):
+            return f"The request was blocked by Google AI ({block_reason})."
+    except Exception:
+        pass
+    try:
+        for candidate in getattr(response, "candidates", []) or []:
+            reason = getattr(candidate, "finish_reason", None)
+            message = getattr(candidate, "finish_message", None)
+            if reason and str(reason).lower() not in ("stop", "none", "finishreason.unspecified"):
+                return f"Google AI returned no text because the model stopped with {reason}" + (f": {message}" if message else ".")
+    except Exception:
+        pass
+    return "Google AI returned no text content."
+
+
+def validate_api_key(candidate_key):
+    """Validate the API key and Gemma model access without requiring generated text."""
+    if not candidate_key or not isinstance(candidate_key, str) or not candidate_key.strip():
+        return False, "Please enter an API key first."
+    if not _GENAI_AVAILABLE:
+        return False, "The Google Gen AI SDK is not installed. Run `pip install -r requirements.txt` inside your venv."
+    candidate = candidate_key.strip()
+    try:
+        client = genai.Client(api_key=candidate, http_options={"api_version": "v1"})
+        # Verify the exact model exists for this key. This avoids falsely
+        # reporting a valid key as invalid just because a tiny test response
+        # has no text payload.
+        info = client.models.get(model=DEFAULT_GEMMA_MODEL)
+        actions = [str(x).lower() for x in (getattr(info, "supported_actions", None) or [])]
+        if actions and not any("generatecontent" in x for x in actions):
+            return False, f"{DEFAULT_GEMMA_MODEL} is reachable, but generateContent is not available for it."
+        return True, "Gemma AI connected successfully."
+    except Exception as exc:
+        msg = str(exc).lower()
+        if ("api key" in msg and ("invalid" in msg or "not valid" in msg)) or "permission" in msg or "401" in msg or "403" in msg:
+            return False, "That API key does not look valid. Copy it again from Google AI Studio."
+        if "quota" in msg or "rate limit" in msg or "429" in msg or "resource exhausted" in msg:
+            return False, "You hit a rate or quota limit. Wait a moment, or check your quota in Google AI Studio."
+        if "not found" in msg or "404" in msg or ("model" in msg and ("not available" in msg or "unknown" in msg)):
+            return False, f"The configured Gemma model is not available to this API key ({DEFAULT_GEMMA_MODEL})."
+        if "network" in msg or "connect" in msg or "timeout" in msg or "unreachable" in msg or "dns" in msg:
+            return False, "Could not reach Google AI. Check your internet connection and try again."
+        return False, f"Connection failed: {str(exc)[:200]}"
+
+def get_available_models():
+    """Return only currently supported hosted Gemma model IDs."""
+    return list(SUPPORTED_GEMMA_MODELS)
+
+
+def get_selected_model():
+    """Read the user's hosted-Gemma model choice, safely migrating obsolete values."""
+    env_override = os.getenv("STUDYBUDDY_MODEL", "").strip()
+    if env_override in SUPPORTED_GEMMA_MODELS:
+        return env_override
+
+    with db() as con:
+        row = con.execute("SELECT value FROM app_settings WHERE key='gemma_model'").fetchone()
+        if row and row["value"] in SUPPORTED_GEMMA_MODELS:
+            return row["value"]
+        legacy = con.execute("SELECT value FROM app_settings WHERE key='ollama_model'").fetchone()
+        if legacy and legacy["value"] in SUPPORTED_GEMMA_MODELS:
+            return legacy["value"]
+    return DEFAULT_GEMMA_MODEL
+
+
+def save_selected_model(model_name):
+    if model_name not in SUPPORTED_GEMMA_MODELS:
+        model_name = DEFAULT_GEMMA_MODEL
+    with db() as con:
+        con.execute("INSERT INTO app_settings(key,value) VALUES('gemma_model',?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (model_name,))
+
+
+def _friendly_ai_error(exc, model_name):
+    msg = str(exc) if exc is not None else ""
+    low = msg.lower()
+    if not _GENAI_AVAILABLE:
+        return RuntimeError("Google GenAI SDK not installed. Run `pip install -r requirements.txt` and restart the app.")
+    if not has_api_key():
+        return RuntimeError("StudyBuddy AI is not connected. Open the sidebar and paste your Google AI API key under Connect StudyBuddy AI.")
+    if ("api key" in low and ("invalid" in low or "not valid" in low)) or "permissiondenied" in low or "401" in low or "403" in low:
+        return RuntimeError("Your Google AI API key was rejected. Open the sidebar and reconnect with a valid key.")
+    if "quota" in low or "rate limit" in low or "resourceexhausted" in low or "429" in low:
+        return RuntimeError("Quota or rate limit reached. Wait a minute, reduce request frequency, or upgrade your quota in Google AI Studio.")
+    if "not found" in low or "404" in low or ("model" in low and ("not available" in low or "unknown" in low)):
+        return RuntimeError(f"Model '{model_name}' is not reachable right now. Pick a different model in the sidebar or try again later.")
+    if "network" in low or "connect" in low or "timeout" in low or "unreachable" in low or "dns" in low:
+        return RuntimeError("Could not reach Google AI right now. Check your internet connection and try again.")
+    if "content" in low and ("filter" in low or "blocked" in low or "safety" in low or "finish_reason" in low):
+        return RuntimeError("The request was declined by the AI safety filter. Rephrase your study prompt and try again.")
+    if msg:
+        return RuntimeError(f"AI request failed: {msg[:220]}")
+    return RuntimeError(f"AI request failed while using '{model_name}'. Try again in a moment.")
+
+
+def ask_ollama(prompt, system_prompt="You are the StudyBuddy System Assistant. Be concise, practical, encouraging, and focused on studying.", model_override=None):
+    """Call hosted Google Gemma through the current Google Gen AI SDK.
+
+    The function name is retained for call-site compatibility with earlier versions.
+    """
+    model_name = model_override if model_override in SUPPORTED_GEMMA_MODELS else get_selected_model()
+    if not _GENAI_AVAILABLE:
+        raise RuntimeError("The Google Gen AI SDK is not installed. Run `pip install -r requirements.txt` and restart the app.")
+    client = get_configured_genai()
+    if client is None:
+        if not has_api_key():
+            raise RuntimeError("StudyBuddy AI is not connected. Open the sidebar and paste your Google AI API key under Connect StudyBuddy AI.")
+        raise RuntimeError("Could not configure the Google AI client. Check your API key and internet connection.")
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.35,
+                top_p=0.95,
+                max_output_tokens=1024,
+            ),
+        )
+        result = _extract_text_from_response(response)
+        if not result:
+            raise RuntimeError(_response_diagnostic(response))
+        return result
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise _friendly_ai_error(exc, model_name)
+
+
+
+# Original boss roster for the quiz-driven dungeon combat.
+DUNGEON_BOSSES = {
+    "dragon": {"name":"Infernal Dragon", "emoji":"🐉", "element":"FIRE", "color":"#fb583f",
+               "description":"A colossal flame dragon. Correct answers strike its burning core.",
+               "image":"https://commons.wikimedia.org/wiki/Special:FilePath/Fantasy_Afrt_The_Dragon_Revives.png",
+               "attack":"Inferno Breath", "bonus":15},
+    "guardian": {"name":"Shadow Monarch's Guardian", "emoji":"🛡️", "element":"SHADOW", "color":"#a78bfa",
+                 "description":"A dark armored sentinel surrounded by violet mana.",
+                 "image":"https://commons.wikimedia.org/wiki/Special:FilePath/Shadow_Monster_(16789985016).jpg",
+                 "attack":"Void Cleave", "bonus":20},
+    "spider": {"name":"Abyssal Spider", "emoji":"🕷️", "element":"ABYSS", "color":"#4ade80",
+               "description":"A massive cave-dweller that punishes careless strikes.",
+               "image":"https://commons.wikimedia.org/wiki/Special:FilePath/DALL%C2%B7E_2025-02-07_08.34.51_-_A_fantasy_creature_combining_a_spider_and_a_fairy._The_creature_has_a_delicate%2C_translucent_spider_body_with_shimmering%2C_iridescent_wings_like_a_fairy.webp",
+               "attack":"Venom Web", "bonus":12},
+    "titan": {"name":"Frost Titan", "emoji":"❄️", "element":"FROST", "color":"#67e8f9",
+              "description":"An ancient ice giant sealed beneath the dungeon.",
+              "image":"https://commons.wikimedia.org/wiki/Special:FilePath/DnD_Giant.png",
+              "attack":"Glacier Slam", "bonus":18},
+}
+
+def boss_visual(boss_id):
+    boss = DUNGEON_BOSSES.get(boss_id, DUNGEON_BOSSES["dragon"])
+    # Self-contained anime-inspired visual; no external image host or API required.
+    return f"""
+    <div class="dungeon-boss-art" style="--boss-glow:{boss['color']}">
+      <div class="boss-aura"></div>
+      <div class="boss-art-emoji">{boss['emoji']}</div>
+      <div class="boss-art-label">{boss['element']} CLASS · DUNGEON BOSS</div>
+    </div>"""
+
+
+# ---------- RPG systems ----------
+ACHIEVEMENTS = [
+    {"id":"first_quest","icon":"⚔️","name":"First Awakening","desc":"Clear your first study quest.","kind":"completed_quests","value":1},
+    {"id":"ten_quests","icon":"📜","name":"Quest Breaker","desc":"Complete 10 study quests.","kind":"completed_quests","value":10},
+    {"id":"fifty_quests","icon":"🔥","name":"Relentless Hunter","desc":"Complete 50 study quests.","kind":"completed_quests","value":50},
+    {"id":"xp_100","icon":"✨","name":"Awakened","desc":"Reach 100 total XP.","kind":"xp","value":100},
+    {"id":"xp_500","icon":"💠","name":"Power Surge","desc":"Reach 500 total XP.","kind":"xp","value":500},
+    {"id":"streak_7","icon":"🌙","name":"Seven-Day Shadow","desc":"Maintain a 7-day study streak.","kind":"streak","value":7},
+    {"id":"focus_60","icon":"⏱️","name":"Focus Initiate","desc":"Complete 60 focused study minutes.","kind":"focus_minutes","value":60},
+    {"id":"focus_300","icon":"🧿","name":"Deep Focus","desc":"Complete 300 focused study minutes.","kind":"focus_minutes","value":300},
+    {"id":"dungeon_3","icon":"🏰","name":"Dungeon Runner","desc":"Complete 3 dungeon runs.","kind":"dungeon_runs","value":3},
+    {"id":"perfect_dungeon","icon":"💀","name":"Perfect Clear","desc":"Finish a dungeon with every answer correct.","kind":"perfect_dungeon","value":1},
+    {"id":"review_10","icon":"🧠","name":"Memory Awakening","desc":"Review 10 flashcards.","kind":"reviews","value":10},
+    {"id":"s_rank","icon":"👑","name":"S-Rank Scholar","desc":"Reach S-Rank.","kind":"rank","value":"S-RANK"},
+]
+
+DUNGEON_BANK = {
+    "python":[
+        {"q":"Which keyword is used to define a function in Python?","options":["func","def","function","lambda"],"answer":1,"explain":"Python uses the def keyword to define named functions."},
+        {"q":"What is the result of len([10,20,30])?","options":["2","3","4","30"],"answer":1,"explain":"The list contains three elements, so len returns 3."},
+        {"q":"Which data type stores an ordered, mutable collection?","options":["tuple","set","list","string"],"answer":2,"explain":"Lists are ordered and mutable collections in Python."},
+        {"q":"Which operator is used for exponentiation in Python?","options":["^","**","//","%%"],"answer":1,"explain":"Python uses ** for exponentiation."},
+        {"q":"What does a for loop commonly iterate over?","options":["An iterable","Only integers","Only strings","Only dictionaries"],"answer":0,"explain":"A for loop iterates over an iterable such as a list, string, tuple, or range."},
+    ],
+    "dbms":[
+        {"q":"Which key uniquely identifies a row in a relation?","options":["Foreign key","Primary key","Candidate value","Index key"],"answer":1,"explain":"A primary key uniquely identifies each row."},
+        {"q":"What does SQL stand for?","options":["Structured Query Language","Simple Query Logic","System Queue Language","Sequential Query Link"],"answer":0,"explain":"SQL stands for Structured Query Language."},
+        {"q":"Which command retrieves rows from a table?","options":["GET","SELECT","FETCHTABLE","READ"],"answer":1,"explain":"SELECT is used to retrieve data."},
+        {"q":"A foreign key mainly creates what kind of relationship?","options":["Referential link","UI link","Memory link","Thread link"],"answer":0,"explain":"A foreign key references a key in another table, enforcing referential integrity."},
+        {"q":"Which normal form removes repeating groups?","options":["1NF","2NF","3NF","BCNF"],"answer":0,"explain":"First Normal Form removes repeating groups and requires atomic values."},
+    ],
+    "software engineering":[
+        {"q":"What does SRS stand for?","options":["Software Requirements Specification","System Runtime Service","Software Resource System","Structured Requirement Syntax"],"answer":0,"explain":"SRS means Software Requirements Specification."},
+        {"q":"PERT is mainly used for what?","options":["Risk-free coding","Project time estimation","Database indexing","UI design"],"answer":1,"explain":"PERT estimates activity/project duration using optimistic, most likely, and pessimistic times."},
+        {"q":"Which model emphasizes repeated risk analysis?","options":["Waterfall","Spiral","V-Model","Big Bang"],"answer":1,"explain":"The Spiral model explicitly incorporates risk analysis in iterative cycles."},
+        {"q":"What does UML stand for?","options":["Unified Modeling Language","Universal Machine Logic","User Modeling Layer","Unified Module Library"],"answer":0,"explain":"UML is Unified Modeling Language."},
+        {"q":"COCOMO is associated with estimating what?","options":["Software effort/cost","Network bandwidth","Database size","Test coverage"],"answer":0,"explain":"COCOMO estimates software development effort, cost, and schedule."},
+    ],
+    "maths":[
+        {"q":"What is the arithmetic mean of 2, 4 and 6?","options":["3","4","5","6"],"answer":1,"explain":"(2+4+6)/3 = 4."},
+        {"q":"A probability must lie between which values?","options":["-1 and 1","0 and 1","1 and 100","-100 and 100"],"answer":1,"explain":"Probability ranges from 0 (impossible) to 1 (certain)."},
+        {"q":"What is the square of 5?","options":["10","15","20","25"],"answer":3,"explain":"5 × 5 = 25."},
+        {"q":"If a fair coin is tossed once, the probability of heads is?","options":["0","1/4","1/2","1"],"answer":2,"explain":"There are two equally likely outcomes, so P(heads)=1/2."},
+        {"q":"The median is the value that lies where in ordered data?","options":["At the beginning","At the center","At the maximum","At the minimum"],"answer":1,"explain":"The median is the middle value after ordering the observations."},
+    ],
+}
+
+
+def _now():
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def current_week_start():
+    today = date.today()
+    return today - timedelta(days=today.weekday())
+
+
+def get_activity_metrics():
+    week_start = current_week_start().isoformat()
+    with db() as con:
+        completed = con.execute("SELECT COUNT(*) FROM quests WHERE completed=1").fetchone()[0]
+        focus_minutes = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1").fetchone()[0]
+        week_focus = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)>=?", (week_start,)).fetchone()[0]
+        dungeon_runs = con.execute("SELECT COUNT(*) FROM dungeon_runs").fetchone()[0]
+        dungeon_wins = con.execute("SELECT COUNT(*) FROM dungeon_runs WHERE correct>0").fetchone()[0]
+        perfects = con.execute("SELECT COUNT(*) FROM dungeon_runs WHERE perfect=1").fetchone()[0]
+        reviews = con.execute("SELECT COUNT(*) FROM review_log").fetchone()[0]
+        due_cards = con.execute("SELECT COUNT(*) FROM revision_cards WHERE due<=?", (date.today().isoformat(),)).fetchone()[0]
+    return {"completed_quests":completed,"focus_minutes":int(focus_minutes or 0),"week_focus":int(week_focus or 0),
+            "dungeon_runs":dungeon_runs,"dungeon_wins":dungeon_wins,"perfect_dungeon":perfects,
+            "reviews":reviews,"due_cards":due_cards}
+
+
+def evaluate_achievements():
+    profile_now = get_profile()
+    metrics = get_activity_metrics()
+    rank = rank_for(profile_now["xp"])
+    values = {**metrics, "xp":profile_now["xp"], "streak":profile_now["streak"], "rank":rank}
+    unlocked_now = []
+    with db() as con:
+        existing = {row[0] for row in con.execute("SELECT id FROM achievements").fetchall()}
+        for ach in ACHIEVEMENTS:
+            current = values.get(ach["kind"], 0)
+            ok = (current == ach["value"] if ach["kind"] == "rank" else current >= ach["value"])
+            if ok and ach["id"] not in existing:
+                con.execute("INSERT INTO achievements(id,unlocked_at) VALUES(?,?)", (ach["id"], _now()))
+                unlocked_now.append(ach)
+    return unlocked_now
+
+
+def maybe_award_daily_bonus():
+    today = date.today().isoformat()
+    with db() as con:
+        key = "daily_bonus_" + today
+        if con.execute("SELECT 1 FROM app_settings WHERE key=?", (key,)).fetchone():
+            return False
+        row = con.execute("SELECT COUNT(*) AS total, COALESCE(SUM(completed),0) AS done FROM quests WHERE due=?", (today,)).fetchone()
+        if row["total"] == 0 or row["done"] != row["total"]:
+            return False
+        con.execute("INSERT INTO app_settings(key,value) VALUES(?,?)", (key, "1"))
+    award_xp(25, 15, source="daily_bonus", note="Daily quest board cleared")
+    st.session_state["daily_bonus_event"] = True
+    return True
+
+
+def log_focus_session(minutes, mode):
+    minutes = max(1, int(minutes))
+    with db() as con:
+        con.execute("INSERT INTO focus_sessions(started_at,minutes,mode,completed) VALUES(?,?,?,1)", (_now(), minutes, mode))
+    reward = max(5, min(40, minutes // 5 * 2))
+    award_xp(reward, minutes, source="focus", note=f"Completed {minutes}-minute focus session")
+    evaluate_achievements()
+    return reward
+
+
+def create_card(subject, front, back):
+    with db() as con:
+        con.execute("INSERT INTO revision_cards(subject,front,back,due,created_at) VALUES(?,?,?,?,?)",
+                    (subject.strip() or "General", front.strip(), back.strip(), date.today().isoformat(), _now()))
+
+
+def review_card(card_id, rating):
+    with db() as con:
+        card = con.execute("SELECT * FROM revision_cards WHERE id=?", (card_id,)).fetchone()
+        if not card:
+            return
+        ease = float(card["ease"])
+        reps = int(card["repetitions"])
+        interval = int(card["interval_days"])
+        if rating == "Again":
+            reps = 0
+            interval = 1
+            ease = max(1.3, ease - 0.20)
+        elif rating == "Hard":
+            reps += 1
+            interval = max(1, round(interval * 1.2))
+            ease = max(1.3, ease - 0.10)
+        elif rating == "Good":
+            reps += 1
+            interval = 1 if reps == 1 else (3 if reps == 2 else max(1, round(interval * ease)))
+        else:  # Easy
+            reps += 1
+            interval = 4 if reps == 1 else max(2, round(interval * ease * 1.3))
+            ease = min(3.2, ease + 0.10)
+        due = (date.today() + timedelta(days=interval)).isoformat()
+        con.execute("""UPDATE revision_cards SET interval_days=?,ease=?,repetitions=?,due=?,last_reviewed=? WHERE id=?""",
+                    (interval,ease,reps,due,_now(),card_id))
+        con.execute("INSERT INTO review_log(card_id,rating,reviewed_at) VALUES(?,?,?)", (card_id,rating,_now()))
+
+
+def _parse_json_array(text):
+    if not text:
+        return None
+    raw = text.strip()
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, list) else None
+    except Exception:
+        start = raw.find("[")
+        end = raw.rfind("]")
+        if start >= 0 and end > start:
+            try:
+                data = json.loads(raw[start:end+1])
+                return data if isinstance(data, list) else None
+            except Exception:
+                return None
+    return None
+
+
+def generate_quiz_questions(subject, count, difficulty):
+    prompt = (f"Create exactly {count} multiple-choice questions for a study game about {subject}. "
+              f"Difficulty: {difficulty}. Return ONLY a JSON array, no markdown. Each object must contain "
+              'q, options (exactly 4 strings), answer (0-3 integer), explain (short string). ' 
+              "Questions must be factually correct and suitable for a college student.")
+    try:
+        raw = ask_ollama(prompt, "You create reliable educational multiple-choice questions. Follow the requested JSON schema exactly. Never include markdown fences.")
+        data = _parse_json_array(raw)
+        clean = []
+        if data:
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                opts = item.get("options")
+                ans = item.get("answer")
+                q = str(item.get("q", "")).strip()
+                exp = str(item.get("explain", "")).strip()
+                if q and isinstance(opts, list) and len(opts) == 4 and isinstance(ans, int) and 0 <= ans < 4:
+                    clean.append({"q":q,"options":[str(x) for x in opts],"answer":ans,"explain":exp or "Review the concept and try again."})
+        if len(clean) >= max(3, count-1):
+            return clean[:count], "AI"
+    except Exception:
+        pass
+    key = subject.strip().lower()
+    bank = None
+    for name, items in DUNGEON_BANK.items():
+        if name in key or key in name:
+            bank = items
+            break
+    if bank is None:
+        bank = [
+            {"q":f"Which study action best improves recall for {subject}?","options":["Passive rereading only","Active self-testing","Avoiding practice","Studying everything at once"],"answer":1,"explain":"Active recall is generally more effective than passive rereading for strengthening retrieval."},
+            {"q":f"What is a useful first step when learning {subject}?","options":["Define the core concepts","Skip fundamentals","Memorize without context","Study only the hardest topic"],"answer":0,"explain":"A clear foundation makes later material easier to connect and review."},
+            {"q":f"Which approach is best when you get a question wrong in {subject}?","options":["Ignore it","Review the explanation and retry later","Quit the topic","Memorize the option letter"],"answer":1,"explain":"Reviewing the reason for the error and retrying supports durable learning."},
+            {"q":f"Which method helps spread practice for {subject} across time?","options":["Spaced repetition","Cramming once","Skipping review","Only watching videos"],"answer":0,"explain":"Spaced repetition revisits information at increasing intervals."},
+            {"q":f"What should a good study session for {subject} usually include?","options":["One clear objective","Many unrelated tabs","No breaks ever","Only passive reading"],"answer":0,"explain":"A focused objective makes the session easier to complete and measure."},
+        ]
+    rng = random.Random(subject.lower() + date.today().isoformat())
+    bank = bank[:]
+    rng.shuffle(bank)
+    return bank[:min(count, len(bank))], "Practice Bank"
+
+
+def save_dungeon_run(subject, difficulty, questions, correct, xp, perfect):
+    with db() as con:
+        con.execute("INSERT INTO dungeon_runs(subject,difficulty,questions,correct,xp_earned,perfect,played_at) VALUES(?,?,?,?,?,?,?)",
+                    (subject,difficulty,questions,correct,xp,int(perfect),_now()))
+    evaluate_achievements()
+
+
+def finish_dungeon():
+    run = st.session_state.get("dungeon_run")
+    if not run or run.get("finished"):
+        return 0
+    correct = run["correct"]
+    total = len(run["questions"])
+    perfect = correct == total
+    base = 10 + correct * 10
+    difficulty_bonus = {"Easy":0,"Normal":5,"Hard":12,"Nightmare":20}.get(run["difficulty"], 0)
+    perfect_bonus = 20 if perfect else 0
+    boss_bonus = DUNGEON_BOSSES.get(run.get("boss_id", "dragon"), DUNGEON_BOSSES["dragon"])["bonus"]
+    xp = base + difficulty_bonus + perfect_bonus + boss_bonus
+    award_xp(xp, max(15, total * 5), source="dungeon", note=f"Boss defeated: {run['subject']} ({correct}/{total})")
+    save_dungeon_run(run["subject"], run["difficulty"], total, correct, xp, perfect)
+    run["finished"] = True
+    run["xp_earned"] = xp
+    run["perfect"] = perfect
+    st.session_state["dungeon_run"] = run
+    return xp
+
+
+def guild_data():
+    with db() as con:
+        guild = dict(con.execute("SELECT * FROM guild WHERE id=1").fetchone())
+        if not guild.get("code"):
+            code = create_guild_code(guild["name"])
+            con.execute("UPDATE guild SET code=? WHERE id=1", (code,))
+            guild["code"] = code
+        members = [dict(r) for r in con.execute("SELECT * FROM guild_members ORDER BY weekly_xp DESC, name").fetchall()]
+    return guild, members
+
+
+def guild_weekly_xp():
+    week_start = current_week_start().isoformat()
+    with db() as con:
+        row = con.execute("SELECT COALESCE(SUM(amount),0) FROM xp_log WHERE amount>0 AND substr(happened_at,1,10)>=?", (week_start,)).fetchone()
+    return int(row[0] or 0)
+
+
+def create_guild_code(name):
+    return "SB-" + hashlib.sha1((name + _now()).encode()).hexdigest()[:6].upper()
+
+
+# ---------- Sidebar / navigation ----------
+pages = [
+    "🏠 Hunter Dashboard",
+    "📅 Quest Schedule",
+    "⚔️ Dungeon Battles",
+    "⏱️ Focus Room",
+    "🧠 Revision Lab",
+    "✨ Gemma Study Lab",
+    "🏆 Achievements",
+    "📊 Hunter Report",
+    "🤖 AI System Assistant",
+    "👥 Shadow Army",
+    "🤝 Guild Hall",
+    "📚 Important PDFs",
+    "🧬 Character & Power",
+    "⚙️ Settings",
+]
+with st.sidebar:
+    st.markdown(
+        "<div class='sidebar-brand'>"
+        "<div class='sidebar-brand-name'>⚔️ STUDY<span>BUDDY</span></div>"
+        "<div class='sidebar-brand-sub'>Level Up Protocol</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div class='sidebar-section-label'>Navigation</div>", unsafe_allow_html=True)
+    page = st.radio("Navigation", pages, label_visibility="collapsed")
+    st.divider()
+
+    st.markdown("<div class='sidebar-section-label'>Gemma AI · Google Cloud</div>", unsafe_allow_html=True)
+
+    _key_from_secrets = False
+    try:
+        if hasattr(st, "secrets"):
+            _sk = st.secrets.get("GEMINI_API_KEY")
+            if _sk and isinstance(_sk, str) and _sk.strip():
+                _key_from_secrets = True
+    except Exception:
+        pass
+    _key_from_env = bool(os.getenv("GEMINI_API_KEY", "").strip())
+    _key_from_session = bool(st.session_state.get("gemini_api_key", "").strip())
+
+    if has_api_key():
+        _status_icon = "✓"
+        _status_class = "ai-status connected"
+        _status_text = "Gemma AI: Connected"
+        if _key_from_secrets:
+            _src = "Streamlit secrets"
+        elif _key_from_env:
+            _src = "Env / .env"
+        else:
+            _src = "Session key"
+    else:
+        _status_icon = "✕"
+        _status_class = "ai-status disconnected"
+        _status_text = "Gemma AI: Not connected"
+        _src = "Setup needed"
+
+    st.markdown(
+        f"<div class='{_status_class}'>"
+        f"<span class='status-dot' style='margin-right:6px'></span>"
+        f"<b>{_status_icon}</b> &nbsp; <span>{_status_text}</span>"
+        f"</div>"
+        f"<div class='muted' style='font-size:0.7rem;margin-top:4px;margin-bottom:10px;padding-left:2px'>via {_src}</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not _key_from_secrets and not _key_from_env:
+        with st.expander("🔗 Connect StudyBuddy AI", expanded=not has_api_key()):
+            st.markdown(
+                "<div style='padding:4px 2px 10px 2px'>"
+                "<div style='font-weight:600;color:#e6eefb;margin-bottom:6px'>Connect StudyBuddy AI</div>"
+                "<div class='muted' style='font-size:0.75rem;line-height:1.45'>StudyBuddy uses Google Gemma through the Gemini API — no local install or downloads needed. Get a free key from Google AI Studio, then paste it below.</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            st.link_button("🔑 Get Google AI API Key", "https://aistudio.google.com/app/apikey", use_container_width=True)
+            with st.form("gemma_key_form", clear_on_submit=False):
+                candidate = st.text_input(
+                    "Google AI API Key",
+                    type="password",
+                    placeholder="Paste your key here…",
+                    help="Never share or commit your API key. This stays in your browser session only.",
+                    label_visibility="collapsed",
+                )
+                connect = st.form_submit_button("Connect AI", type="primary", use_container_width=True)
+            if connect:
+                if not candidate.strip():
+                    st.error("Please paste an API key first.")
+                else:
+                    with st.spinner("Validating your key…"):
+                        ok, msg = validate_api_key(candidate)
+                    if ok:
+                        st.session_state["gemini_api_key"] = candidate.strip()
+                        st.session_state["gemma_key_validated_at"] = _now()
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+            if _key_from_session:
+                st.caption("Using the session key you connected. It will be cleared when you close this tab.")
+                if st.button("Disconnect session key", key="gemma_disconnect", use_container_width=True):
+                    st.session_state.pop("gemini_api_key", None)
+                    st.session_state.pop("gemma_key_validated_at", None)
+                    st.rerun()
+            elif not has_api_key():
+                st.caption("Tip: for Streamlit Cloud deployments, add GEMINI_API_KEY in ☰ → Settings → Secrets.")
+    else:
+        st.caption("Key is already loaded from " + _src + ". Use the selector below to change models.")
+
+    st.divider()
+
+    st.markdown("<div class='sidebar-section-label'>AI Model</div>", unsafe_allow_html=True)
+    available = get_available_models()
+    saved_model = get_selected_model()
+    if saved_model not in available:
+        available = [saved_model] + available
+    default_index = available.index(saved_model) if saved_model in available else 0
+    selected_model = st.selectbox(
+        "Hosted Gemma model",
+        available,
+        index=default_index,
+        key="gemma_model_picker",
+        help="Choose which hosted Gemma variant sends your study requests.",
+        label_visibility="collapsed",
+    )
+    if selected_model != saved_model:
+        save_selected_model(selected_model)
+    st.caption(f"Active · {selected_model}")
+    st.divider()
+
+    st.markdown("<div class='sidebar-section-label'>Hunter</div>", unsafe_allow_html=True)
+    profile = get_profile()
+    st.markdown(
+        f"<div class='sidebar-hunter'><span class='status-dot'></span><b>{profile['name']}</b> "
+        f"<span class='muted' style='font-size:0.75rem'> ONLINE</span></div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"<span class='rank'>{rank_for(profile['xp'])}</span>", unsafe_allow_html=True)
+    st.caption(f"Level {level_for(profile['xp'])} · {profile['xp']} XP")
+    st.progress(xp_progress(profile['xp']) / 100)
+
+profile = get_profile()
+try:
+    maybe_award_daily_bonus()
+except Exception:
+    pass
+new_achievements = evaluate_achievements()
+if new_achievements:
+    st.session_state["achievement_event"] = new_achievements
+profile = get_profile()
+rank = rank_for(profile["xp"])
+level = level_for(profile["xp"])
+
+# ---------- Dashboard ----------
+if page == "🏠 Hunter Dashboard":
+    st.markdown(
+        f"""<div class='hero'>
+          <div class='hero-kicker'>System Online · Daily Hunter Status</div>
+          <div class='hero-title'>Welcome back, {profile['name']}.</div>
+          <p class='hero-sub'>Your study world is active. Clear missions, train your memory, defeat dungeons, and evolve.</p>
+          <div class='hero-meta'>
+            <span class='rank'>{rank}</span>
+            <span class='system-chip'>Level {level}</span>
+            <span class='system-chip purple'>Streak {profile['streak']} days</span>
+          </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    if st.session_state.get("level_up_event"):
+        ev = st.session_state.pop("level_up_event")
+        st.markdown(
+            f"<div class='level-up-banner'>"
+            f"<div class='level-up-kicker'>✦ Level Up Detected ✦</div>"
+            f"<div class='level-up-title'>Level {ev['old']} → Level {ev['new']}</div>"
+            f"<div class='muted'>Your training has made you stronger. New progression and companions may now be available.</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    if st.session_state.get("daily_bonus_event"):
+        st.session_state.pop("daily_bonus_event")
+        st.markdown(
+            "<div class='reward-banner'>◈ Daily board cleared · +25 bonus XP · All systems thriving</div>",
+            unsafe_allow_html=True,
+        )
+    if st.session_state.get("achievement_event"):
+        unlocked_events = st.session_state.pop("achievement_event")
+        names = " · ".join(a["icon"] + " " + a["name"] for a in unlocked_events)
+        st.markdown(f"<div class='reward-banner'>🏆 Achievement unlocked · {names}</div>", unsafe_allow_html=True)
+
+    metrics = get_activity_metrics()
+    with db() as con:
+        today_q = con.execute("SELECT COUNT(*) FROM quests WHERE due=? AND completed=0", (date.today().isoformat(),)).fetchone()[0]
+        today_focus = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)=?", (date.today().isoformat(),)).fetchone()[0]
+        ach_count = con.execute("SELECT COUNT(*) FROM achievements").fetchone()[0]
+
+    top_cols = st.columns(4)
+    for col, label, value in [
+        (top_cols[0], "Hunter Level", level),
+        (top_cols[1], "Total XP", profile["xp"]),
+        (top_cols[2], "Active Quests", today_q),
+        (top_cols[3], "Day Streak", profile["streak"]),
+    ]:
+        with col:
+            st.markdown(
+                f"<div class='stat'><div class='stat-label'>{label}</div><div class='stat-value'>{value}</div></div>",
+                unsafe_allow_html=True,
+            )
+    sec_cols = st.columns(4)
+    for col, label, value in [
+        (sec_cols[0], "Revision Ready", metrics["due_cards"]),
+        (sec_cols[1], "Focus Today", f"{int(today_focus)}m"),
+        (sec_cols[2], "Dungeon Runs", metrics["dungeon_runs"]),
+        (sec_cols[3], "Achievements", ach_count),
+    ]:
+        with col:
+            st.markdown(
+                f"<div class='stat'><div class='stat-label'>{label}</div><div class='stat-value'>{value}</div></div>",
+                unsafe_allow_html=True,
+            )
+
+    left, right = st.columns([1.35, 1])
+    with left:
+        with st.container():
+            st.markdown(
+                f"<div class='panel'>"
+                f"<div class='panel-title'>⚡ Experience Progress</div>"
+                f"<div style='display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px'>"
+                f"<b>Level {level}</b>"
+                f"<span class='muted'>{xp_progress(profile['xp'])}/100 XP to next level</span>"
+                f"</div>"
+                f"<div class='xp-track'><div class='xp-fill' style='width:{xp_progress(profile['xp'])}%'></div></div>"
+                f"<div class='muted' style='margin-top:6px'>Rank progression: {rank}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+        with st.container():
+            st.markdown("<div class='panel'><div class='panel-title'>📜 Today's Quests</div>", unsafe_allow_html=True)
+            with db() as con:
+                rows = con.execute(
+                    "SELECT * FROM quests WHERE due=? ORDER BY completed, id",
+                    (date.today().isoformat(),),
+                ).fetchall()
+            if not rows:
+                st.info("No quests scheduled for today. Open Quest Schedule and add your first mission.")
+            for q in rows:
+                st.markdown(
+                    f"<div class='quest {'quest-done' if q['completed'] else ''}'>"
+                    f"<b>{'✓ ' if q['completed'] else '◈ '}{q['title']}</b>"
+                    f"<div class='muted'>{q['subject'] or 'General'} · {q['minutes']} min · {q['difficulty']} · +{q['reward']} XP</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                if not q["completed"]:
+                    if st.button(f"Complete · +{q['reward']} XP", key=f"dash_done_{q['id']}", use_container_width=False):
+                        complete_quest(q["id"])
+                        st.success(f"Quest cleared! +{q['reward']} XP")
+                        st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        with st.container():
+            st.markdown("<div class='panel'><div class='panel-title'>🧬 Hunter Status</div>", unsafe_allow_html=True)
+            char_icons = {"Shadow Hunter": "🗡️", "Mage": "🔮", "Knight": "🛡️", "Archer": "🏹"}
+            power = (
+                profile["xp"]
+                + profile["focus"] * 10
+                + profile["discipline"] * 10
+                + profile["knowledge"] * 10
+                + profile["energy"] * 5
+            )
+            st.markdown(
+                f"<div style='font-family:Rajdhani,sans-serif;font-size:1.5rem;font-weight:700;color:#dceaff'>"
+                f"{char_icons.get(profile['character'], '⚔️')} {profile['character']}"
+                f"</div>"
+                f"<div class='muted' style='margin-top:2px'>Awakening profile · Power: {power:,}</div>",
+                unsafe_allow_html=True,
+            )
+            for label, key in [("Focus", "focus"), ("Discipline", "discipline"), ("Knowledge", "knowledge"), ("Energy", "energy")]:
+                val = profile[key]
+                st.markdown(
+                    f"<div style='display:flex;justify-content:space-between;align-items:baseline;margin-top:10px'>"
+                    f"<span class='muted'>{label}</span>"
+                    f"<b>{val}</b>"
+                    f"</div>"
+                    f"<div class='xp-track' style='height:7px'><div class='xp-fill' style='width:{min(val,99)}%'></div></div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown(
+            "<div class='panel'>"
+            "<div class='panel-title'>🎯 System Tip</div>"
+            "<span class='muted'>Break large study goals into short quests. Consistency builds your streak and your stats.</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        next_action = (
+            "Start a 25-minute Focus session"
+            if today_focus == 0
+            else ("Review your ready flashcards" if metrics["due_cards"] else "Enter a Dungeon and test your mastery")
+        )
+        st.markdown(
+            f"<div class='system-next'>"
+            f"<span class='muted'>Next recommended action</span>"
+            f"<b>{next_action}</b>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        if profile.get("penalty_enabled", 1):
+            st.warning(
+                f"Penalty protocol active: overdue quests can cost {profile.get('penalty_amount', 10)} XP each "
+                f"(max 30 XP/day). Adjust in Settings."
+            )
+        else:
+            st.info("Penalty protocol is disabled. Turn it on in Settings for missed-quest consequences.")
+
+# ---------- AI System Assistant ----------
+elif page == "🤖 AI System Assistant":
+    model_name = get_selected_model()
+    _ai_connected = has_api_key()
+    st.markdown(
+        f"""<div class='hero'>
+          <div class='hero-kicker'>System Intelligence · Hosted Gemma</div>
+          <div class='hero-title'>AI System Assistant</div>
+          <p class='hero-sub'>Your AI mentor suggests study quests, builds plans, and coaches progress. XP is earned by completing scheduled missions.</p>
+          <div class='hero-meta'>
+            <span class='system-chip'>Model · {model_name}</span>
+            <span class='system-chip purple'>{"✓ Gemma Connected" if _ai_connected else "Connect AI in sidebar"}</span>
+          </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    st.caption("Change the active model anytime from the sidebar · Inference runs through Google Gemma on Google Cloud")
+
+    plan_tab, mentor_tab = st.tabs(["⚡ Generate Today's Quests", "🗡️ Ask the Shadow Mentor"])
+
+    with plan_tab:
+        with st.form("ai_quest_form"):
+            a, b = st.columns([1.4, 1])
+            with a:
+                subjects = st.text_input("Subjects / topics", placeholder="e.g. Python, DBMS, Software Engineering")
+            with b:
+                available_time = st.selectbox(
+                    "Available study time", [30, 60, 90, 120, 180, 240], index=2, format_func=lambda x: f"{x} minutes"
+                )
+            priority = st.text_input(
+                "Priority or exam target (optional)",
+                placeholder="e.g. Practice Python loops for tomorrow's lab",
+            )
+            make_plan = st.form_submit_button("✨ Generate study quests", type="primary")
+        if make_plan:
+            if not subjects.strip():
+                st.warning("Enter at least one subject or topic.")
+            else:
+                prompt = (
+                    "Create a realistic study plan for today. Subjects/topics: "
+                    + subjects.strip()
+                    + ". Total available time: "
+                    + str(available_time)
+                    + " minutes. Priority: "
+                    + (priority.strip() or "not specified")
+                    + ". Give 3 to 5 short quests that fit within the time limit. For each, use this exact format: "
+                    "Quest: [clear task] | Subject: [subject] | Duration: [minutes] | Difficulty: [Easy/Normal/Hard/Boss]. "
+                    "Keep durations realistic and total duration within the limit. Then add one short system-style tip. Do not summarize documents."
+                )
+                with st.spinner("Generating quests with Gemma AI…"):
+                    try:
+                        st.session_state["ai_plan_result"] = ask_ollama(prompt)
+                    except RuntimeError as exc:
+                        st.error(str(exc))
+        if st.session_state.get("ai_plan_result"):
+            st.markdown("#### 📜 Generated mission plan")
+            st.markdown(st.session_state["ai_plan_result"])
+            st.info("Create these missions in Quest Schedule to track progress and earn XP · AI suggestions do not change progress automatically.")
+
+    with mentor_tab:
+        if "mentor_messages" not in st.session_state:
+            st.session_state["mentor_messages"] = []
+
+        if not st.session_state["mentor_messages"]:
+            st.markdown(
+                "<div class='chat-empty'>"
+                "<div class='chat-empty-icon'>🗡️</div>"
+                "<div class='chat-empty-title'>Ask the Shadow Mentor</div>"
+                "<div class='muted'>Get study advice, revision strategies, or help choosing your next mission.</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption("Try one of these:")
+            suggestions = [
+                "What should I study first today?",
+                "Give me a 3-step revision routine",
+                "How do I stay focused for 90 minutes?",
+                "Review my pending quests and rank them",
+            ]
+            cols = st.columns(2)
+            for i, s in enumerate(suggestions):
+                with cols[i % 2]:
+                    if st.button(s, key=f"mentor_sug_{i}", use_container_width=True):
+                        st.session_state["mentor_suggestion"] = s
+
+        for item in st.session_state["mentor_messages"]:
+            with st.chat_message(item["role"]):
+                st.markdown(item["content"])
+
+        with st.form("mentor_chat_form", clear_on_submit=True):
+            default_q = st.session_state.pop("mentor_suggestion", "") if "mentor_suggestion" in st.session_state else ""
+            user_question = st.text_input(
+                "Message the Shadow Mentor",
+                value=default_q,
+                placeholder="What should I study first today?",
+            )
+            send = st.form_submit_button("Send message", type="primary")
+        if send:
+            if not user_question.strip():
+                st.warning("Type a message first.")
+            else:
+                with db() as con:
+                    pending = con.execute(
+                        "SELECT title,subject,due,minutes,difficulty FROM quests WHERE completed=0 ORDER BY due,id LIMIT 8"
+                    ).fetchall()
+                task_context = (
+                    "; ".join(
+                        [
+                            f"{q['title']} ({q['subject'] or 'General'}, due {q['due']}, {q['minutes']} min, {q['difficulty']})"
+                            for q in pending
+                        ]
+                    )
+                    or "No pending quests"
+                )
+                context = (
+                    f"Hunter level: {level}; rank: {rank}; total XP: {profile['xp']}; streak: {profile['streak']}. "
+                    f"Pending quests: {task_context}. User asks: {user_question.strip()}"
+                )
+                st.session_state["mentor_messages"].append({"role": "user", "content": user_question.strip()})
+                with st.spinner("Shadow Mentor is thinking…"):
+                    try:
+                        reply = ask_ollama(
+                            context,
+                            "You are a concise, supportive study mentor called the Shadow Mentor. Give practical study advice based on the provided progress and tasks. Use a subtle RPG system tone, but do not claim to control the app, change XP, or access PDFs. Keep answers focused and reasonably short.",
+                        )
+                        st.session_state["mentor_messages"].append({"role": "assistant", "content": reply})
+                        st.rerun()
+                    except RuntimeError as exc:
+                        st.error(str(exc))
+                        st.session_state["mentor_messages"].pop()
+        if st.session_state["mentor_messages"]:
+            if st.button("Clear conversation"):
+                st.session_state["mentor_messages"] = []
+                st.rerun()
+
+
+# ---------- Gemma Study Lab ----------
+elif page == "✨ Gemma Study Lab":
+    _ai_ready = has_api_key()
+    st.markdown(
+        f"""<div class='hero'>
+          <div class='hero-kicker'>Open-Weight Model Lab · Gemma</div>
+          <div class='hero-title'>Gemma Study Lab</div>
+          <p class='hero-sub'>Run learning tasks with Google's hosted Gemma models and optionally compare output and timing side-by-side with a second Gemma variant.</p>
+          <div class='hero-meta'>
+            <span class='system-chip'>Gemma · Hosted via Google Cloud</span>
+            <span class='system-chip purple'>{"✓ AI Connected" if _ai_ready else "Connect AI in sidebar"}</span>
+          </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    all_models = get_available_models()
+    gemma_models = [m for m in all_models]
+    if not gemma_models:
+        gemma_models = list(SUPPORTED_GEMMA_MODELS)
+    col_a, col_b = st.columns([1, 1])
+    with col_a:
+        st.markdown("<div class='system-panel'><div class='panel-title'>◈ Gemma runtime</div><div class='muted'>Runs through Google's hosted Gemma API. No local downloads or Ollama required.</div></div>", unsafe_allow_html=True)
+    with col_b:
+        st.markdown("<div class='system-panel'><div class='panel-title'>◈ Evaluation mode</div><div class='muted'>Optional side-by-side timing comparison against a second hosted Gemma variant.</div></div>", unsafe_allow_html=True)
+    if not _ai_ready:
+        st.warning("Gemma Study Lab is open, but StudyBuddy AI is not connected yet.")
+        st.markdown("**To enable the Gemma Study Lab:**")
+        steps = [
+            "Open the sidebar and find **Gemma AI · Google Cloud**.",
+            "Click **🔑 Get Google AI API Key** to open aistudio.google.com/app/apikey.",
+            "Create a key, paste it into **Connect StudyBuddy AI**, then click **Connect AI**.",
+            "Once connected, return here to run study tasks."
+        ]
+        for i, s in enumerate(steps, 1):
+            st.markdown(f"{i}. {s}")
+    else:
+        default_gemma = DEFAULT_GEMMA_MODEL
+        if default_gemma not in gemma_models:
+            gemma_models = [default_gemma] + gemma_models
+        gemma_model = st.selectbox("Primary Gemma model", gemma_models,
+                                   index=(gemma_models.index(default_gemma) if default_gemma in gemma_models else 0),
+                                   key="gemma_lab_model")
+        baseline_candidates = [m for m in gemma_models if m != gemma_model]
+        baseline = st.selectbox("Comparison model (optional)", ["None"] + baseline_candidates,
+                                index=(baseline_candidates.index(FALLBACK_GEMMA_MODEL) + 1 if FALLBACK_GEMMA_MODEL in baseline_candidates else 0),
+                                key="gemma_baseline")
+        task = st.selectbox("Study task", ["Generate a quiz", "Explain a concept", "Create a revision plan", "Make flashcards"], key="gemma_task")
+        subject = st.text_input("Subject or topic", placeholder="e.g. Spearman rank correlation", key="gemma_subject")
+        notes = st.text_area("Your notes or context (optional)", placeholder="Paste a short excerpt or describe what you are learning...", height=130, key="gemma_notes")
+        level = st.selectbox("Difficulty", ["Beginner", "Intermediate", "Exam-ready"], index=1, key="gemma_difficulty")
+        count = st.slider("Question/card count", 3, 10, 5, key="gemma_count")
+        compare = st.checkbox("Compare response time with second model", value=(baseline != "None"), key="gemma_compare")
+        if st.button("✦ Run Gemma Study Task", type="primary", use_container_width=True, key="run_gemma_task"):
+            if not subject.strip():
+                st.warning("Enter a subject or topic first.")
+            else:
+                task_instructions = {
+                    "Generate a quiz": f"Create {count} multiple-choice questions at {level} level. Give four options per question, clearly mark the correct answer, and explain why it is correct.",
+                    "Explain a concept": f"Teach this topic at {level} level. Start with a simple explanation, then give one worked example and three key takeaways.",
+                    "Create a revision plan": f"Create a practical revision plan for this topic at {level} level. Break it into short sessions, include active recall and spaced review, and finish with a self-checklist.",
+                    "Make flashcards": f"Create {count} concise question-and-answer flashcards at {level} level. Format as numbered Front / Back pairs.",
+                }
+                prompt = (f"Study topic: {subject.strip()}\nContext/notes: {notes.strip()[:6000] or 'No notes provided.'}\n\n"
+                          + task_instructions[task]
+                          + "\nBe accurate. If the supplied notes do not contain enough information, say what is missing rather than inventing details.")
+                sys_prompt = "You are Gemma acting as a precise, supportive study tutor inside StudyBuddy. Use clear structure and avoid unnecessary filler."
+                with st.spinner(f"{gemma_model} is working on your study task..."):
+                    try:
+                        t0 = time.perf_counter()
+                        gemma_result = ask_ollama(prompt, sys_prompt, model_override=gemma_model)
+                        gemma_seconds = time.perf_counter() - t0
+                        st.session_state["gemma_lab_result"] = {"text": gemma_result, "model": gemma_model, "seconds": gemma_seconds, "task": task, "subject": subject.strip()}
+                        if compare and baseline != "None":
+                            t1 = time.perf_counter()
+                            baseline_result = ask_ollama(prompt, sys_prompt, model_override=baseline)
+                            baseline_seconds = time.perf_counter() - t1
+                            st.session_state["gemma_lab_comparison"] = {"text": baseline_result, "model": baseline, "seconds": baseline_seconds}
+                        else:
+                            st.session_state.pop("gemma_lab_comparison", None)
+                    except RuntimeError as exc:
+                        st.error(str(exc))
+        result = st.session_state.get("gemma_lab_result")
+        if result:
+            st.divider()
+            st.markdown("### ✦ Study output")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Model", result["model"])
+            m2.metric("Task", result["task"])
+            m3.metric("Response time", f"{result['seconds']:.1f}s")
+            st.markdown(result["text"])
+            comparison = st.session_state.get("gemma_lab_comparison")
+            if comparison:
+                st.markdown("### ⚖️ Model comparison")
+                left, right = st.columns(2)
+                with left:
+                    st.markdown(f"**Primary · {result['seconds']:.1f}s**")
+                    st.write(result["text"])
+                with right:
+                    st.markdown(f"**{comparison['model']} · {comparison['seconds']:.1f}s**")
+                    st.write(comparison["text"])
+                st.caption("Timing is a single hosted run, not a controlled benchmark. Compare answer quality manually; speed alone does not measure learning accuracy.")
+
+
+# ---------- Shadow Army ----------
+elif page == "👥 Shadow Army":
+    available = unlocked_shadows(profile["xp"])
+    st.markdown(
+        f"""<div class='hero'>
+          <div class='hero-kicker'>Shadow Extraction · Companion System</div>
+          <div class='hero-title'>Shadow Army</div>
+          <p class='hero-sub'>Unlock loyal study companions as you level up. Each soldier has a distinct AI personality and helps you train.</p>
+          <div class='hero-meta'>
+            <span class='system-chip'>{len(available)}/{len(SHADOW_ARMY)} Awakened</span>
+            <span class='system-chip purple'>Level {level}</span>
+          </div>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"**Army strength · {len(available)}/{len(SHADOW_ARMY)} shadows awakened**")
+    st.progress(len(available) / len(SHADOW_ARMY))
+    cols = st.columns(2)
+    for idx, soldier in enumerate(SHADOW_ARMY):
+        unlocked = soldier in available
+        with cols[idx % 2]:
+            opacity = "1" if unlocked else ".48"
+            status = "🟢 AWAKENED" if unlocked else f"🔒 Unlock at Level {soldier['level']}"
+            # Only reveal character art after the soldier is unlocked.
+            art = load_shadow_image(SHADOW_IMAGES[soldier["id"]]) if unlocked and soldier["id"] in SHADOW_IMAGES else None
+            if art:
+                st.image(art, use_container_width=True)
+            else:
+                st.markdown(
+                    "<div style='height:170px;display:flex;align-items:center;justify-content:center;"
+                    "border:1px solid rgba(132,177,235,.2);border-radius:16px;"
+                    "background:radial-gradient(circle,rgba(71,95,150,.35),rgba(8,13,28,.8));"
+                    "font-size:56px;text-shadow:0 0 24px #67e8f966'>"
+                    + (soldier["emoji"] if unlocked else "🔒") + "</div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown(
+                f"<div class='panel' style='min-height:175px;opacity:{opacity}'>"
+                f"<div class='panel-title' style='margin:0'>{soldier['name'] if unlocked else '???'}</div>"
+                f"<div class='muted'>{soldier['title'] if unlocked else 'Unknown shadow'}</div>"
+                f"<div style='margin-top:12px;color:#67e8f9;font-weight:700'>{status}</div>"
+                f"<div style='margin-top:7px'><b>{soldier['ability'] if unlocked else 'Hidden ability'}</b></div>"
+                f"<div class='muted' style='margin-top:5px'>{soldier['description'] if unlocked else 'Complete study quests and gain levels to reveal this soldier.'}</div></div>",
+                unsafe_allow_html=True,
+            )
+    st.divider()
+    if not available:
+        st.info("Complete quests to awaken your first shadow companion.")
+    else:
+        reaction_pool = [
+            ("Igris", "⚔️ Igris stands ready. One clear objective. No excuses. "),
+            ("Tank", "🐻 Tank remembers your progress. A little study today is still progress."),
+            ("Iron", "🛡️ Iron has raised the Focus Shield. Close the distractions and begin."),
+            ("Tusk", "🔮 Tusk senses knowledge waiting to be mastered. Bring him one difficult topic."),
+            ("Beru", "👑 Beru is delighted by your effort, my master. Now let us make that effort count!")
+        ]
+        favored = reaction_pool[min(level-1, len(reaction_pool)-1)]
+        st.markdown(f"<div class='shadow-reaction'><span>{favored[0]}</span><b>{favored[1]}</b></div>", unsafe_allow_html=True)
+        st.subheader("💬 Speak with your shadow")
+        selected_name = st.selectbox("Choose an awakened soldier", [x["name"] for x in available])
+        soldier = next(x for x in available if x["name"] == selected_name)
+        st.caption(f"{soldier['emoji']} {soldier['ability']} — {soldier['description']}")
+        art = load_shadow_image(SHADOW_IMAGES[soldier["id"]]) if soldier["id"] in SHADOW_IMAGES else None
+        if art:
+            st.image(art, width=260)
+        chat_key = f"shadow_chat_{soldier['id']}"
+        if chat_key not in st.session_state:
+            st.session_state[chat_key] = []
+        for item in st.session_state[chat_key]:
+            with st.chat_message(item["role"]):
+                st.markdown(item["content"])
+        with st.form(f"shadow_chat_form_{soldier['id']}", clear_on_submit=True):
+            message = st.text_input("Message your shadow", placeholder=f"Ask {soldier['name']} for study help...")
+            send_shadow = st.form_submit_button("Send message", type="primary")
+        if send_shadow:
+            if not message.strip():
+                st.warning("Type a message first.")
+            else:
+                with db() as con:
+                    pending = con.execute("SELECT title,subject,due,minutes,difficulty FROM quests WHERE completed=0 ORDER BY due,id LIMIT 6").fetchall()
+                pending_text = "; ".join([f"{q['title']} ({q['subject'] or 'General'}, due {q['due']}, {q['minutes']} min, {q['difficulty']})" for q in pending]) or "No pending quests"
+                player_context = (f"Player level: {level}; rank: {rank}; XP: {profile['xp']}; streak: {profile['streak']}. "
+                                  f"Pending quests: {pending_text}. Player's message: {message.strip()}")
+                st.session_state[chat_key].append({"role":"user", "content":message.strip()})
+                with st.spinner(f"{soldier['name']} is responding..."):
+                    try:
+                        reply = ask_ollama(player_context, soldier["persona"] + " Use the player's progress and pending quests when relevant. Keep replies short and useful.")
+                        st.session_state[chat_key].append({"role":"assistant", "content":reply})
+                        st.rerun()
+                    except RuntimeError as exc:
+                        st.error(str(exc))
+                        st.session_state[chat_key].pop()
+        if st.button(f"Clear {soldier['name']} conversation", key=f"clear_shadow_{soldier['id']}"):
+            st.session_state[chat_key] = []
+            st.rerun()
+        st.caption("Shadow conversations use your hosted Gemma model. Chatting does not award XP; complete scheduled quests to earn rewards.")
+
+# ---------- Schedule ----------
+elif page == "📅 Quest Schedule":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>Mission Control</div>
+          <div class='hero-title'>Quest Calendar</div>
+          <p class='hero-sub'>Plan your study missions, track workload, and clear quests to level up.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+    # Month calendar controls
+    today = date.today()
+    if "calendar_month" not in st.session_state:
+        st.session_state.calendar_month = today.replace(day=1)
+    if "calendar_selected_day" not in st.session_state:
+        st.session_state.calendar_selected_day = today
+    month_value = st.session_state.calendar_month
+    nav_l, month_col, nav_r = st.columns([1, 4, 1])
+    with nav_l:
+        if st.button("← Previous", key="calendar_prev", use_container_width=True):
+            y, m = month_value.year, month_value.month - 1
+            if m == 0: y, m = y - 1, 12
+            st.session_state.calendar_month = date(y, m, 1)
+            st.rerun()
+    with month_col:
+        st.markdown(f"<h3 style='text-align:center;margin:5px 0 15px'>{calendar.month_name[month_value.month]} {month_value.year}</h3>", unsafe_allow_html=True)
+    with nav_r:
+        if st.button("Next →", key="calendar_next", use_container_width=True):
+            y, m = month_value.year, month_value.month + 1
+            if m == 13: y, m = y + 1, 1
+            st.session_state.calendar_month = date(y, m, 1)
+            st.rerun()
+
+    with db() as con:
+        month_quests = con.execute("SELECT * FROM quests WHERE due >= ? AND due <= ? ORDER BY due,id", (date(month_value.year, month_value.month, 1).isoformat(), date(month_value.year, month_value.month, calendar.monthrange(month_value.year, month_value.month)[1]).isoformat())).fetchall()
+        all_quests = con.execute("SELECT * FROM quests ORDER BY due,id").fetchall()
+    by_day = {}
+    for quest in month_quests:
+        by_day.setdefault(date.fromisoformat(quest["due"]).day, []).append(quest)
+
+    st.markdown("<div class='panel' style='padding:12px 18px;margin:8px 0 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px'><span style='color:#eaf5ff;font-weight:700'>◈ MISSION TIMELINE</span><span class='muted'>Choose a day to open its agenda · <span style='color:#67e8f9'>●</span> active · <span style='color:#86efac'>●</span> cleared</span></div>", unsafe_allow_html=True)
+    weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    head = st.columns(7)
+    for col, label in zip(head, weekdays):
+        col.markdown(f"<div style='text-align:center;color:#8fc8e8;font-weight:700'>{label}</div>", unsafe_allow_html=True)
+    weeks = calendar.monthcalendar(month_value.year, month_value.month)
+    for week_index, week in enumerate(weeks):
+        cells = st.columns(7)
+        for col, day_num in zip(cells, week):
+            with col:
+                if day_num == 0:
+                    st.markdown("<div style='height:62px'></div>", unsafe_allow_html=True)
+                else:
+                    day_date = date(month_value.year, month_value.month, day_num)
+                    quests_that_day = by_day.get(day_num, [])
+                    done_count = sum(1 for item in quests_that_day if item["completed"])
+                    open_count = len(quests_that_day) - done_count
+                    selected = st.session_state.calendar_selected_day == day_date
+                    marker = (f"● {open_count} active" if open_count else "No quests")
+                    if done_count:
+                        marker += f"\n✓ {done_count} cleared"
+                    label = f"{day_num:02d}\n{marker}"
+                    if st.button(label, key=f"cal_{month_value.year}_{month_value.month}_{day_num}", use_container_width=True, type="primary" if selected else "secondary"):
+                        st.session_state.calendar_selected_day = day_date
+                        st.rerun()
+    selected_day = st.session_state.calendar_selected_day
+    if selected_day.year != month_value.year or selected_day.month != month_value.month:
+        selected_day = date(month_value.year, month_value.month, 1)
+        st.session_state.calendar_selected_day = selected_day
+    selected_quests = [q for q in all_quests if q["due"] == selected_day.isoformat()]
+    done_today = sum(1 for q in selected_quests if q["completed"])
+    pending_today = len(selected_quests) - done_today
+    planned_minutes = sum(q["minutes"] for q in selected_quests if not q["completed"])
+    st.markdown(f"<div class='hero' style='padding:18px 22px;margin-top:18px'><div class='hero-kicker'>SELECTED DAY · MISSION AGENDA</div><div style='font-family:Orbitron,Rajdhani,sans-serif;font-size:22px;font-weight:700;color:#fff;margin-top:6px'>{selected_day.strftime('%A, %d %B %Y')}</div><div class='hero-sub' style='margin-top:5px'>Your daily plan, progress, and rewards in one place.</div></div>", unsafe_allow_html=True)
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Missions", len(selected_quests))
+    m2.metric("Completed", done_today)
+    m3.metric("Planned time left", f"{planned_minutes} min")
+    if selected_quests:
+        for q in selected_quests:
+            with st.container(border=True):
+                left, right = st.columns([4, 1])
+                with left:
+                    st.markdown(f"**{'✓' if q['completed'] else '◈'} {q['title']}**")
+                    st.caption(f"{q['subject'] or 'General'} · {q['minutes']} min · {q['difficulty']} · +{q['reward']} XP")
+                with right:
+                    if q["completed"]:
+                        st.success("Cleared")
+                    elif st.button("Complete", key=f"cal_complete_{q['id']}", use_container_width=True):
+                        earned = complete_quest(q["id"])
+                        st.toast(f"Quest cleared: +{earned} XP", icon="⚡")
+                        st.rerun()
+    else:
+        st.info("No missions scheduled for this date. Add a quest below to fill this day.")
+
+    with st.expander("＋ Create a new quest", expanded=True):
+        with st.form("new_quest", clear_on_submit=True):
+            a,b = st.columns(2)
+            title = a.text_input("Quest name", placeholder="e.g. Revise Python loops")
+            subject = b.text_input("Subject", placeholder="e.g. Python")
+            c,d,e = st.columns(3)
+            due = c.date_input("Scheduled date", value=selected_day)
+            minutes = d.selectbox("Duration", [15,30,45,60,90,120], index=2, format_func=lambda x:f"{x} minutes")
+            difficulty = e.selectbox("Difficulty", ["Easy","Normal","Hard","Boss"])
+            base = {"Easy":15,"Normal":30,"Hard":50,"Boss":80}[difficulty]
+            reward = base + max(0,(minutes-30)//15*5)
+            st.caption(f"Reward preview: +{reward} XP")
+            submitted = st.form_submit_button("Add quest to calendar", type="primary")
+            if submitted:
+                if not title.strip(): st.error("Enter a quest name first.")
+                else:
+                    with db() as con:
+                        con.execute("INSERT INTO quests(title,subject,due,minutes,difficulty,reward) VALUES(?,?,?,?,?,?)", (title.strip(),subject.strip(),due.isoformat(),minutes,difficulty,reward))
+                    st.success("Quest added to your calendar."); st.rerun()
+
+    st.divider()
+    st.subheader("Mission list")
+    mode = st.selectbox("Show quests", ["Upcoming", "All", "Completed"], index=0)
+    with db() as con:
+        if mode == "Completed": rows=con.execute("SELECT * FROM quests WHERE completed=1 ORDER BY due DESC,id DESC").fetchall()
+        elif mode == "Upcoming": rows=con.execute("SELECT * FROM quests WHERE completed=0 ORDER BY due,id").fetchall()
+        else: rows=con.execute("SELECT * FROM quests ORDER BY due DESC,id DESC").fetchall()
+    if not rows: st.info("Nothing here yet. Create a quest above.")
+    for q in rows:
+        with st.container(border=True):
+            l,r=st.columns([4,1])
+            with l:
+                st.markdown(f"**{'✓ ' if q['completed'] else '◈ '}{q['title']}**")
+                due_date = date.fromisoformat(q['due'])
+                overdue = (not q['completed']) and due_date < date.today()
+                status_text = " · ⚠️ OVERDUE" if overdue else (" · Penalty applied" if q['penalty_applied'] else "")
+                st.caption(f"{q['subject'] or 'General'} · {due_date.strftime('%d %b %Y')} · {q['minutes']} min · {q['difficulty']} · Reward: {q['reward']} XP{status_text}")
+            with r:
+                if q["completed"]: st.success("Cleared")
+                elif st.button("Clear quest", key=f"sched_done_{q['id']}", use_container_width=True):
+                    complete_quest(q["id"]); st.success(f"+{q['reward']} XP earned"); st.rerun()
+                if not q["completed"]:
+                    if st.button("Delete", key=f"del_{q['id']}", use_container_width=True):
+                        with db() as con: con.execute("DELETE FROM quests WHERE id=?",(q['id'],))
+                        st.rerun()
+
+# ---------- Dungeon Battles ----------
+elif page == "⚔️ Dungeon Battles":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>Instance Gate · Adaptive Knowledge Trial</div>
+          <div class='hero-title'>Dungeon Battles</div>
+          <p class='hero-sub'>Enter a subject dungeon, defeat the knowledge boss, and earn XP from correct answers.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    run = st.session_state.get("dungeon_run")
+    if not run:
+        with st.form("dungeon_launch"):
+            a,b,c = st.columns(3)
+            subject = a.text_input("Dungeon subject", placeholder="e.g. Python, DBMS, Maths")
+            difficulty = b.selectbox("Threat level", ["Easy","Normal","Hard","Nightmare"], index=1)
+            count = c.selectbox("Questions", [5,7,10], index=0)
+            boss_label = st.selectbox("Choose your boss", [b["name"] for b in DUNGEON_BOSSES.values()], key="dungeon_boss_choice")
+            boss_id = next((key for key, value in DUNGEON_BOSSES.items() if value["name"] == boss_label), "dragon")
+            launch = st.form_submit_button("⚔️ Open Dungeon Gate", type="primary", use_container_width=True)
+        st.markdown("<div class='system-panel'><b>How the battle works</b><div class='muted' style='margin-top:7px'>Correct answers damage the boss and build your combo. Mistakes cost a shield charge, but never deduct XP. Finish the run to claim your reward.</div></div>", unsafe_allow_html=True)
+        with db() as con:
+            recent = con.execute("SELECT subject,difficulty,correct,questions,xp_earned,played_at FROM dungeon_runs ORDER BY id DESC LIMIT 5").fetchall()
+        if recent:
+            st.subheader("Recent runs")
+            for r in recent:
+                pct = int(100*r['correct']/max(1,r['questions']))
+                st.markdown(f"<div class='quest'><b>{r['subject']}</b><div class='muted'>{r['difficulty']} · {r['correct']}/{r['questions']} correct ({pct}%) · +{r['xp_earned']} XP · {r['played_at'][:10]}</div></div>", unsafe_allow_html=True)
+        if launch:
+            if not subject.strip():
+                st.warning("Enter a subject first.")
+            else:
+                questions, source = generate_quiz_questions(subject.strip(), count, difficulty)
+                st.session_state["dungeon_run"] = {"subject":subject.strip(),"difficulty":difficulty,"questions":questions,"source":source,"boss_id":boss_id,"index":0,"correct":0,"combo":0,"shield":3,"answered":False,"last_result":None,"finished":False}
+                st.rerun()
+    else:
+        if run.get("finished"):
+            cleared_boss = DUNGEON_BOSSES.get(run.get("boss_id", "dragon"), DUNGEON_BOSSES["dragon"])
+            st.markdown("<div class='dungeon-result'><div class='focus-badge'>INSTANCE CLEARED</div><div class='level-up-title'>Boss Defeated</div><div class='muted'>You defeated the " + cleared_boss["name"] + " in " + run["subject"] + " dungeon.</div><div style='font-size:30px;margin-top:8px'>+" + str(run.get("xp_earned",0)) + " XP</div><div class='muted'>" + str(run["correct"]) + "/" + str(len(run["questions"])) + " answers correct</div></div>", unsafe_allow_html=True)
+            if run.get("perfect"):
+                st.success("Perfect clear! Achievement progress has been updated.")
+            if st.button("Return to Dungeon Hub", type="primary"):
+                st.session_state.pop("dungeon_run", None)
+                st.rerun()
+        else:
+            total = len(run["questions"])
+            idx = run["index"]
+            q = run["questions"][idx]
+            hp_pct = int(100 * (total- run["correct"]) / max(1,total))
+            boss_id = run.get("boss_id", "dragon")
+            boss = DUNGEON_BOSSES.get(boss_id, DUNGEON_BOSSES["dragon"])
+            # Display the actual boss artwork above the battle HUD.
+            st.image(boss["image"], use_container_width=True, caption=boss["name"])
+            st.markdown(
+                f"<div class='dungeon-boss'>{boss_visual(boss_id)}"
+                f"<div class='boss-name'>{boss['name']}</div>"
+                f"<div class='muted'>{boss['description']}</div>"
+                f"<div class='muted' style='margin-top:10px'>THREAT · {run['difficulty']} · QUESTION {idx+1}/{total}</div>"
+                f"<div class='hp-track'><div class='hp-fill' style='width:{max(0,hp_pct)}%'></div></div>"
+                f"<div class='muted'>Boss HP · {max(0,total-run['correct'])}/{total} · Attack: {boss['attack']}</div></div>",
+                unsafe_allow_html=True
+            )
+            k1,k2,k3 = st.columns(3)
+            k1.metric("Combo", f"x{run['combo']}")
+            k2.metric("Correct", f"{run['correct']}/{idx}")
+            k3.metric("Shield", "♥"*run['shield'] + "♡"*(3-run['shield']))
+            if run.get("last_result") is None:
+                st.markdown(f"<div class='system-panel'><div class='focus-badge'>TARGET #{idx+1}</div><div style='font:700 23px Rajdhani,sans-serif;color:white;margin-top:7px'>{q['q']}</div></div>", unsafe_allow_html=True)
+                with st.form(f"dungeon_question_{idx}"):
+                    choice = st.radio("Choose your strike", q["options"], index=None)
+                    strike = st.form_submit_button("⚡ STRIKE", type="primary", use_container_width=True)
+                if strike:
+                    if choice is None:
+                        st.warning("Choose an answer first.")
+                    else:
+                        selected = q["options"].index(choice)
+                        correct = selected == q["answer"]
+                        run["last_result"] = {"correct":correct,"answer":q["options"][q["answer"]],"explain":q.get("explain","")}
+                        if correct:
+                            run["correct"] += 1
+                            run["combo"] += 1
+                        else:
+                            run["combo"] = 0
+                            run["shield"] = max(0, run["shield"]-1)
+                        st.session_state["dungeon_run"] = run
+                        st.rerun()
+            else:
+                result = run["last_result"]
+                if result["correct"]:
+                    st.success(f"CRITICAL HIT · Correct! Boss shield broken. Combo x{run['combo']}")
+                else:
+                    st.error(f"BLOCKED · Correct answer: {result['answer']}")
+                st.markdown(f"<div class='system-panel'><b>Battle analysis</b><div class='muted' style='margin-top:6px'>{result['explain']}</div></div>", unsafe_allow_html=True)
+                if idx + 1 < total:
+                    if st.button("Next target →", type="primary", use_container_width=True):
+                        run["index"] += 1
+                        run["last_result"] = None
+                        st.session_state["dungeon_run"] = run
+                        st.rerun()
+                else:
+                    if st.button("Claim dungeon rewards", type="primary", use_container_width=True):
+                        finish_dungeon()
+                        st.rerun()
+
+# ---------- Focus Room ----------
+elif page == "⏱️ Focus Room":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>Focus Chamber · Pomodoro Protocol</div>
+          <div class='hero-title'>Focus Room</div>
+          <p class='hero-sub'>Study inside a dedicated room, finish a timer, and convert focused minutes into progression.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    mode_map = {"Quick Focus":15,"Classic Pomodoro":25,"Deep Work":50,"Long Session":90}
+    a,b = st.columns([1,2])
+    with a:
+        mode = st.selectbox("Session mode", list(mode_map.keys()))
+        minutes = mode_map[mode]
+        custom = st.checkbox("Use custom duration")
+        if custom:
+            minutes = st.slider("Minutes", 5, 120, 25, 5)
+        st.markdown(f"<div class='system-panel'><div class='focus-badge'>CURRENT PROTOCOL</div><div style='font:800 28px Orbitron;color:white;margin-top:8px'>{minutes} MIN</div><div class='muted'>Complete the session, then claim your focus XP.</div></div>", unsafe_allow_html=True)
+        if st.button("✅ Log completed focus session", type="primary", use_container_width=True):
+            reward = log_focus_session(minutes, mode)
+            st.success(f"Focus session logged · +{reward} XP")
+            st.rerun()
+    with b:
+        timer_html = f"""<!doctype html><html><body style="margin:0;background:transparent;font-family:Inter,Arial;color:#eef6ff"><div style="text-align:center;padding:10px"><div id="badge" style="font-size:11px;letter-spacing:3px;color:#67e8f9;font-weight:800">FOCUS PROTOCOL</div><div id="timer" style="font:800 74px Orbitron,Arial;margin:18px 0;text-shadow:0 0 25px #67e8f955">{minutes:02d}:00</div><div style="height:8px;background:#17243a;border-radius:99px;overflow:hidden"><div id="bar" style="height:100%;width:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);border-radius:99px"></div></div><div style="margin-top:18px"><button id="start" style="border:1px solid #67e8f966;background:#12345acc;color:white;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer">START</button><button id="reset" style="margin-left:8px;border:1px solid #ffffff18;background:#0b1526cc;color:#cbdcf0;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer">RESET</button></div><div id="status" style="margin-top:13px;color:#9db4cc;font-size:13px">Start when you are ready.</div></div><script>let total={minutes}*60, left=total, timer=null;const t=document.getElementById('timer'),b=document.getElementById('bar'),s=document.getElementById('status');function render(){{let m=Math.floor(left/60),sec=left%60;t.textContent=String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');b.style.width=(left/total*100)+'%';}}document.getElementById('start').onclick=()=>{{if(timer)return;s.textContent='Session active — one task, one target.';timer=setInterval(()=>{{if(left<=0){{clearInterval(timer);timer=null;s.textContent='Session complete — claim your focus XP in the panel.';try{{new AudioContext().resume();const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=660;g.gain.value=.03;o.start();o.stop(c.currentTime+.35);}}catch(e){{}}return;}}left--;render();}},1000)}};document.getElementById('reset').onclick=()=>{{if(timer){{clearInterval(timer);timer=null}}left=total;s.textContent='Timer reset.';render()}};render();</script></body></html>"""
+        components.html(timer_html, height=300, scrolling=False)
+    with db() as con:
+        recent = con.execute("SELECT * FROM focus_sessions ORDER BY id DESC LIMIT 10").fetchall()
+        week = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)>=?", (current_week_start().isoformat(),)).fetchone()[0]
+    st.subheader("Focus history")
+    st.metric("This week", f"{int(week)} minutes")
+    for s in recent:
+        st.markdown(f"<div class='quest'><b>⏱️ {s['mode']}</b><div class='muted'>{s['minutes']} minutes · {s['started_at'][:16].replace('T',' · ')}</div></div>", unsafe_allow_html=True)
+
+# ---------- Revision Lab ----------
+elif page == "🧠 Revision Lab":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>Memory Core · Spaced Repetition</div>
+          <div class='hero-title'>Revision Lab</div>
+          <p class='hero-sub'>Build flashcards, review only what is due, and let the scheduler space repetition for you.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    metrics = get_activity_metrics()
+    a,b,c = st.columns(3)
+    a.metric("Due now", metrics['due_cards'])
+    c.metric("Reviews", metrics['reviews'])
+    with db() as con:
+        total_cards = con.execute("SELECT COUNT(*) FROM revision_cards").fetchone()[0]
+    b.metric("Total cards", total_cards)
+    create_tab, ai_tab, review_tab = st.tabs(["＋ Create Card","✨ AI Card Forge","🧠 Review Due"])
+    with create_tab:
+        with st.form("create_card"):
+            a,b = st.columns(2)
+            subject = a.text_input("Subject", placeholder="Python")
+            front = b.text_input("Question / Front", placeholder="What does len() return?")
+            back = st.text_area("Answer / Back", placeholder="The number of items in an object such as a list.")
+            add = st.form_submit_button("Add flashcard", type="primary")
+        if add:
+            if not front.strip() or not back.strip(): st.error("Both front and back are required.")
+            else:
+                create_card(subject, front, back); st.success("Flashcard created and due now."); st.rerun()
+    with ai_tab:
+        with st.form("ai_cards"):
+            topic = st.text_input("Topic", placeholder="e.g. Python lists")
+            number = st.selectbox("Number of cards", [3,5,8], index=1)
+            forge = st.form_submit_button("Forge cards with Gemma", type="primary")
+        if forge:
+            if not topic.strip():
+                st.warning("Enter a topic.")
+            else:
+                prompt = f"Create exactly {number} concise flashcards about {topic}. Return ONLY JSON array. Each object must have subject, front, back. Keep answers correct and study-focused."
+                with st.spinner("Forging memory cards..."):
+                    try:
+                        raw = ask_ollama(prompt, "You create accurate flashcards. Return only a JSON array with subject, front, back fields.")
+                        cards = _parse_json_array(raw) or []
+                        valid = [x for x in cards if isinstance(x,dict) and str(x.get('front','')).strip() and str(x.get('back','')).strip()]
+                        if valid:
+                            for card in valid[:number]: create_card(str(card.get('subject') or topic), str(card['front']), str(card['back']))
+                            st.success(f"Added {min(number,len(valid))} AI flashcards."); st.rerun()
+                        else: st.error("The selected model did not return usable cards. Try a stronger installed model or create cards manually.")
+                    except RuntimeError as exc: st.error(str(exc))
+    with review_tab:
+        with db() as con:
+            due_cards = con.execute("SELECT * FROM revision_cards WHERE due<=? ORDER BY due,id LIMIT 1", (date.today().isoformat(),)).fetchall()
+        if not due_cards:
+            st.markdown("<div class='review-card' style='text-align:center'><div style='font-size:60px'>🌙</div><div class='review-front'>Memory Core is clear.</div><div class='muted' style='margin-top:8px'>No cards are due right now. Create more cards or return when your next review is scheduled.</div></div>", unsafe_allow_html=True)
+        else:
+            card = due_cards[0]
+            st.markdown(f"<div class='review-card'><div class='focus-badge'>{card['subject'] or 'GENERAL'} · DUE NOW</div><div class='review-front' style='margin-top:15px'>{card['front']}</div><div class='review-back'>Flip in your head before revealing: <b>What is the answer?</b><br><br>{card['back']}</div></div>", unsafe_allow_html=True)
+            st.caption(f"Current interval: {card['interval_days']} day(s) · Ease {card['ease']:.2f}")
+            r1,r2,r3,r4 = st.columns(4)
+            if r1.button("Again · 1d", key=f"again_{card['id']}", use_container_width=True): review_card(card['id'], "Again"); st.rerun()
+            if r2.button("Hard", key=f"hard_{card['id']}", use_container_width=True): review_card(card['id'], "Hard"); st.rerun()
+            if r3.button("Good", key=f"good_{card['id']}", use_container_width=True): review_card(card['id'], "Good"); st.rerun()
+            if r4.button("Easy", key=f"easy_{card['id']}", use_container_width=True): review_card(card['id'], "Easy"); st.rerun()
+    st.divider()
+    with db() as con:
+        upcoming = con.execute("SELECT * FROM revision_cards ORDER BY due,id LIMIT 12").fetchall()
+    st.subheader("Memory schedule")
+    for card in upcoming:
+        status = "DUE" if card['due'] <= date.today().isoformat() else card['due']
+        st.markdown(f"<div class='quest'><b>{card['subject'] or 'General'} · {card['front'][:70]}</b><div class='muted'>{status} · interval {card['interval_days']}d · repetitions {card['repetitions']}</div></div>", unsafe_allow_html=True)
+
+# ---------- Achievements ----------
+elif page == "🏆 Achievements":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>Hunter Record · Collection System</div>
+          <div class='hero-title'>Achievements</div>
+          <p class='hero-sub'>Every milestone is a permanent record of what you actually accomplished.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    evaluate_achievements()
+    with db() as con:
+        unlocked = {r['id']:r['unlocked_at'] for r in con.execute("SELECT * FROM achievements ORDER BY unlocked_at").fetchall()}
+    pct = len(unlocked)/len(ACHIEVEMENTS) if ACHIEVEMENTS else 0
+    m1,m2,m3 = st.columns(3)
+    m1.metric("Unlocked", f"{len(unlocked)}/{len(ACHIEVEMENTS)}")
+    m2.metric("Collection", f"{int(pct*100)}%")
+    m3.metric("Current rank", rank)
+    st.progress(pct)
+    cols = st.columns(3)
+    for i,ach in enumerate(ACHIEVEMENTS):
+        ok = ach['id'] in unlocked
+        with cols[i%3]:
+            st.markdown(f"<div class='achievement-card {' ' if ok else 'achievement-locked'}'><div class='achievement-icon'>{ach['icon'] if ok else '🔒'}</div><div class='achievement-name'>{ach['name']}</div><div class='muted' style='margin-top:5px'>{ach['desc']}</div><div style='margin-top:9px;color:{'#86efac' if ok else '#718096'};font-size:12px'>{'UNLOCKED · '+unlocked[ach['id']][:10] if ok else 'LOCKED'}</div></div>", unsafe_allow_html=True)
+
+# ---------- Hunter Report ----------
+elif page == "📊 Hunter Report":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>Intelligence Report · Last 7 Days</div>
+          <div class='hero-title'>Hunter Report</div>
+          <p class='hero-sub'>A clear weekly review of your study effort, wins, weak spots, and next training priorities.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    start = current_week_start()
+    days = [(start + timedelta(days=i)) for i in range(7)]
+    with db() as con:
+        day_rows=[]
+        for d in days:
+            ds=d.isoformat()
+            q=con.execute("SELECT COUNT(*) AS total, COALESCE(SUM(completed),0) AS done FROM quests WHERE due=?", (ds,)).fetchone()
+            f=con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)=?", (ds,)).fetchone()[0]
+            x=con.execute("SELECT COALESCE(SUM(amount),0) FROM xp_log WHERE substr(happened_at,1,10)=?", (ds,)).fetchone()[0]
+            day_rows.append((d,q['total'],q['done'],int(f or 0),int(x or 0)))
+    total_q=sum(x[1] for x in day_rows); done_q=sum(x[2] for x in day_rows); focus=sum(x[3] for x in day_rows); net_xp=sum(x[4] for x in day_rows)
+    with db() as con:
+        subject_rows = con.execute("SELECT COALESCE(subject,'General') AS subject, COUNT(*) AS total, COALESCE(SUM(completed),0) AS done FROM quests GROUP BY COALESCE(subject,'General') ORDER BY total DESC LIMIT 8").fetchall()
+    subject_payload = "; ".join([f"{r['subject']}: {r['done']}/{r['total']} complete" for r in subject_rows]) or "No quest subject data yet"
+    a,b,c,d = st.columns(4)
+    a.metric("Quest completion", f"{int(100*done_q/max(1,total_q))}%")
+    b.metric("Focus time", f"{focus} min")
+    c.metric("Net XP this week", f"{net_xp:+d}")
+    d.metric("Current streak", f"{profile['streak']} days")
+    st.markdown("### Weekly activity")
+    for day, total, done, mins, xp in day_rows:
+        ratio = done/max(1,total)
+        st.markdown(f"<div class='report-day'><div style='width:76px'><b>{day.strftime('%a')}</b><div class='muted'>{day.strftime('%d %b')}</div></div><div class='day-bar'><div class='day-fill' style='width:{ratio*100:.0f}%'></div></div><div style='width:140px;text-align:right' class='muted'>{done}/{total} quests · {mins}m · {xp:+} XP</div></div>", unsafe_allow_html=True)
+    st.markdown("### Subject mastery")
+    if subject_rows:
+        for r in subject_rows:
+            ratio = r['done']/max(1,r['total'])
+            st.markdown(f"<div class='report-day'><div style='width:160px'><b>{r['subject']}</b></div><div class='day-bar'><div class='day-fill' style='width:{ratio*100:.0f}%'></div></div><div style='width:100px;text-align:right' class='muted'>{r['done']}/{r['total']}</div></div>", unsafe_allow_html=True)
+    else:
+        st.caption("Complete some quests to generate subject-level mastery insights.")
+    st.markdown("### AI Hunter Report")
+    if st.button("✨ Generate my weekly analysis", type="primary"):
+        payload = "; ".join([f"{d.strftime('%a %d')}: {done}/{total} quests, {mins}m focus, {xp:+} XP" for d,total,done,mins,xp in day_rows])
+        prompt = f"Analyze this student's 7-day study activity: {payload}. Subject completion snapshot: {subject_payload}. Current rank {rank}, level {level}, streak {profile['streak']}. Write a concise report with: 1) strongest pattern, 2) weakest subject/pattern, 3) one concrete priority for next week, 4) one realistic habit. Do not invent data and explicitly say when the data is insufficient."
+        with st.spinner("The system is analyzing your week..."):
+            try:
+                st.session_state['hunter_report'] = ask_ollama(prompt)
+            except RuntimeError as exc: st.error(str(exc))
+    if st.session_state.get('hunter_report'):
+        st.markdown(f"<div class='system-panel'>{st.session_state['hunter_report']}</div>", unsafe_allow_html=True)
+    st.info("This report is local and uses only your StudyBuddy activity data. No cloud account is required.")
+
+# ---------- Guild Hall ----------
+elif page == "🤝 Guild Hall":
+    guild, members = guild_data()
+    st.markdown(
+        f"<div class='guild-banner'>"
+        f"<div class='hero-kicker'>Guild Network · Study Party</div>"
+        f"<div class='hero-title'>{guild['name']}</div>"
+        f"<p class='hero-sub'>{guild['motto']}</p>"
+        f"<div class='hero-meta'>"
+        f"<span class='guild-code' style='font-size:1.05rem'>{guild['code']}</span>"
+        f"<span class='muted' style='align-self:center'>Local invite code · party stored on this computer</span>"
+        f"</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    weekly = guild_weekly_xp(); goal = guild['weekly_goal']
+    a,b,c = st.columns(3)
+    a.metric("Guild XP this week", weekly)
+    b.metric("Weekly objective", goal)
+    c.metric("Party members", len(members)+1)
+    st.progress(min(1,weekly/max(1,goal)))
+    with st.expander("⚙️ Guild settings"):
+        with st.form("guild_settings"):
+            name = st.text_input("Guild name", value=guild['name'])
+            motto = st.text_input("Guild motto", value=guild['motto'])
+            goal_value = st.slider("Weekly XP goal", 100, 5000, int(guild['weekly_goal']), 50)
+            save_guild = st.form_submit_button("Save guild")
+        if save_guild:
+            code = guild['code'] or create_guild_code(name.strip() or guild['name'])
+            with db() as con: con.execute("UPDATE guild SET name=?,motto=?,weekly_goal=?,code=? WHERE id=1", (name.strip() or "Awakened Scholars",motto.strip() or "Study together. Rise together.",goal_value,code))
+            st.success("Guild updated."); st.rerun()
+    with st.expander("＋ Add a study party member"):
+        with st.form("guild_member"):
+            n = st.text_input("Member name")
+            role = st.selectbox("Role", ["Hunter","Strategist","Quiz Master","Focus Captain"])
+            mxp = st.number_input("Weekly XP", min_value=0, max_value=5000, value=0, step=10)
+            add = st.form_submit_button("Add member")
+        if add:
+            if not n.strip(): st.error("Enter a name.")
+            else:
+                with db() as con: con.execute("INSERT INTO guild_members(name,role,weekly_xp,added_at) VALUES(?,?,?,?)", (n.strip(),role,int(mxp),_now()))
+                st.success("Member added to the local party."); st.rerun()
+    st.subheader("Guild leaderboard")
+    st.markdown(f"<div class='quest quest-done'><b>👑 {profile['name']} · You</b><div class='muted'>Current rank {rank} · {weekly} guild XP from this installation this week</div></div>", unsafe_allow_html=True)
+    for i,m in enumerate(members,1):
+        st.markdown(f"<div class='quest'><b>#{i+1} {m['name']}</b><div class='muted'>{m['role']} · {m['weekly_xp']} weekly XP · {m['focus_minutes']} focus minutes</div></div>", unsafe_allow_html=True)
+    st.info("Guild Hall is intentionally local-first in this version. It provides a complete party/leaderboard experience on one installation without pretending to offer real-time cloud multiplayer.")
+
+# ---------- Important PDFs ----------
+elif page == "📚 Important PDFs":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>Knowledge Archive</div>
+          <div class='hero-title'>Important PDFs</div>
+          <p class='hero-sub'>Keep your question papers, notes, and reference PDFs in one local library.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    with st.form("pdf_upload", clear_on_submit=True):
+        uploaded=st.file_uploader("Upload a PDF", type=["pdf"])
+        a,b=st.columns(2)
+        title=a.text_input("Display name", placeholder="e.g. Python solved question papers")
+        subject=b.text_input("Subject / category", placeholder="e.g. Python")
+        add=st.form_submit_button("Save to Important PDFs", type="primary")
+        if add:
+            if uploaded is None: st.error("Choose a PDF first.")
+            else:
+                raw=uploaded.getvalue(); digest=hashlib.sha256(raw).hexdigest()
+                safe_name=f"{digest[:12]}_{Path(uploaded.name).name}"
+                dest=PDF_DIR/safe_name
+                try:
+                    # Check whether the PDF can be opened before storing it.
+                    reader=PdfReader(uploaded)
+                    page_count=len(reader.pages)
+                    if not dest.exists(): dest.write_bytes(raw)
+                    with db() as con:
+                        con.execute("INSERT OR IGNORE INTO pdfs(title,subject,filename,stored_path,file_hash,added_at) VALUES(?,?,?,?,?,?)", (title.strip() or Path(uploaded.name).stem,subject.strip(),uploaded.name,str(dest),digest,datetime.now().isoformat(timespec="seconds")))
+                    st.success(f"Saved. {page_count} pages detected."); st.rerun()
+                except Exception as err: st.error(f"Could not save this PDF: {err}")
+    st.subheader("Saved documents")
+    search=st.text_input("Search library", placeholder="Search by title or subject")
+    with db() as con:
+        docs=con.execute("SELECT * FROM pdfs ORDER BY added_at DESC").fetchall()
+    docs=[d for d in docs if search.lower() in (d['title']+' '+(d['subject'] or '')+' '+d['filename']).lower()]
+    if not docs: st.info("Your library is empty. Upload an important PDF above.")
+    for d in docs:
+        with st.container(border=True):
+            a,b,c=st.columns([4,1,1])
+            with a:
+                st.markdown(f"**📄 {d['title']}**")
+                st.caption(f"{d['subject'] or 'Uncategorized'} · {d['filename']} · Added {d['added_at'][:10]}")
+            path=Path(d['stored_path'])
+            if path.exists():
+                with b: st.download_button("Download", data=path.read_bytes(), file_name=d['filename'], mime="application/pdf", key=f"pdf_dl_{d['id']}", use_container_width=True)
+            with c:
+                if st.button("Remove", key=f"pdf_rm_{d['id']}", use_container_width=True):
+                    with db() as con: con.execute("DELETE FROM pdfs WHERE id=?",(d['id'],))
+                    # Leave the physical file in place to avoid deleting a duplicate file still referenced elsewhere.
+                    st.rerun()
+
+# ---------- Character / power ----------
+elif page == "🧬 Character & Power":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>Awakening & Growth</div>
+          <div class='hero-title'>Character & Power</div>
+          <p class='hero-sub'>Your hunter evolves through real study progress. This is a study progression system, not a combat simulator.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    a,b=st.columns([1,1.5])
+    with a:
+        char_icons={"Shadow Hunter":"🗡️","Mage":"🔮","Knight":"🛡️","Archer":"🏹"}
+    power=profile['xp'] + profile['focus']*10 + profile['discipline']*10 + profile['knowledge']*10 + profile['energy']*5
+    st.markdown(f"<div class='panel' style='text-align:center;padding:30px 15px'><div style='font-size:76px'>{char_icons.get(profile['character'],'⚔️')}</div><div style='font-family:Rajdhani;font-size:29px;font-weight:700'>{profile['name']}</div><div class='muted'>{profile['character']}</div><div class='rank'>{rank}</div><h2 style='margin:12px 0 0'>LEVEL {level}</h2><div class='muted'>{profile['title']} · Power {power:,}</div><br><div class='xp-track'><div class='xp-fill' style='width:{xp_progress(profile['xp'])}%'></div></div><div class='muted'>{xp_progress(profile['xp'])}/100 XP to next level</div></div>", unsafe_allow_html=True)
+    with b:
+        st.markdown("<div class='panel'><div class='panel-title'>⚡ Power Status</div>", unsafe_allow_html=True)
+        stat_info=[("🧠 Intelligence","knowledge","Knowledge gained from study quests"),("🎯 Focus","focus","Consistency in completing missions"),("🛡️ Discipline","discipline","Quest completion and routine"),("🔥 Energy","energy","Activity and study momentum")]
+        for label,key,desc in stat_info:
+            val=profile[key]
+            st.markdown(f"<div style='display:flex;justify-content:space-between;align-items:center;margin-top:15px'><b>{label}</b><b style='color:#5ee7f5'>{val}</b></div><div class='xp-track' style='height:9px'><div class='xp-fill' style='width:{min(val,99)}%'></div></div><div class='muted'>{desc}</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div class='panel'><div class='panel-title'>🎒 Hunter Loadout</div><div class='muted'>Cosmetic progression only — studying remains the source of real power.</div></div>", unsafe_allow_html=True)
+    aura_options = ["Azure System Aura","Void Purple Aura","Monarch Gold Aura","Crimson Awakening"]
+    saved_aura = None
+    with db() as con:
+        row = con.execute("SELECT value FROM app_settings WHERE key='aura'").fetchone()
+        saved_aura = row["value"] if row else aura_options[0]
+    aura = st.selectbox("Equip an aura", aura_options, index=aura_options.index(saved_aura) if saved_aura in aura_options else 0)
+    if aura != saved_aura:
+        with db() as con: con.execute("INSERT INTO app_settings(key,value) VALUES('aura',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (aura,))
+        st.toast(f"Equipped: {aura}", icon="✨")
+
+    next_rank = next((name for threshold,name in RANKS if profile['xp'] < threshold), None)
+    if next_rank:
+        threshold = next(threshold for threshold,name in RANKS if name == next_rank)
+        st.markdown(f"<div class='panel'><div class='panel-title'>📈 Rank Roadmap</div><b>{rank}</b> → <b style='color:#f5c451'>{next_rank}</b><div class='xp-track'><div class='xp-fill' style='width:{min(100,max(5,profile['xp']/threshold*100))}%'></div></div><div class='muted'>{max(0,threshold-profile['xp'])} XP until {next_rank}</div></div>", unsafe_allow_html=True)
+    st.subheader("Titles unlocked")
+    titles=[(1,"New Awakening"),(3,"Daily Grinder"),(5,"Quest Breaker"),(10,"Shadow Scholar"),(20,"Monarch of Knowledge")]
+    cols=st.columns(len(titles))
+    for col,(lv,t) in zip(cols,titles):
+        with col:
+            unlocked=level>=lv
+            st.markdown(f"<div class='panel' style='text-align:center;min-height:100px;opacity:{1 if unlocked else .4}'><div style='font-size:22px'>{'🏅' if unlocked else '🔒'}</div><b>{t}</b><div class='muted'>Level {lv}</div></div>",unsafe_allow_html=True)
+    if st.button("Equip highest unlocked title"):
+        available=[t for lv,t in titles if level>=lv]
+        with db() as con: con.execute("UPDATE profile SET title=? WHERE id=1",(available[-1],))
+        st.success(f"Title equipped: {available[-1]}"); st.rerun()
+
+# ---------- Settings ----------
+elif page == "⚙️ Settings":
+    st.markdown(
+        """<div class='hero'>
+          <div class='hero-kicker'>System Configuration</div>
+          <div class='hero-title'>Settings</div>
+          <p class='hero-sub'>Customize your hunter profile and manage local data.</p>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+    with st.form("profile_settings"):
+        new_name=st.text_input("Hunter name", value=profile['name'])
+        character=st.selectbox("Choose your character class", ["Shadow Hunter","Mage","Knight","Archer"], index=["Shadow Hunter","Mage","Knight","Archer"].index(profile.get('character','Shadow Hunter')))
+        save=st.form_submit_button("Save profile", type="primary")
+        if save:
+            with db() as con: con.execute("UPDATE profile SET name=?, character=? WHERE id=1",(new_name.strip() or "Hunter",character))
+            st.success("Profile updated."); st.rerun()
+    st.markdown("### ⚠️ Penalty Protocol")
+    st.caption("Missed quests can reduce XP after their scheduled date. Penalties are one-time per quest and capped at 30 XP per day. Existing overdue quests are not penalized when this feature is first added.")
+    with st.form("penalty_settings"):
+        penalty_on = st.checkbox("Enable missed-quest penalties", value=bool(profile.get("penalty_enabled", 1)))
+        penalty_value = st.select_slider("XP lost per missed quest", options=[5, 10, 15, 20, 25, 30], value=int(profile.get("penalty_amount", 10)))
+        save_penalty = st.form_submit_button("Save penalty rules")
+        if save_penalty:
+            with db() as con:
+                con.execute("UPDATE profile SET penalty_enabled=?, penalty_amount=? WHERE id=1", (int(penalty_on), int(penalty_value)))
+            st.success("Penalty rules saved.")
+            st.rerun()
+    with db() as con:
+        penalty_rows = con.execute("SELECT note,amount,applied_on FROM penalty_log ORDER BY id DESC LIMIT 8").fetchall()
+    with st.expander("Recent penalty history"):
+        if penalty_rows:
+            for item in penalty_rows:
+                st.write(f"-{item['amount']} XP · {item['note']} · {item['applied_on']}")
+        else:
+            st.caption("No penalties recorded.")
+
+    st.markdown("### 🌙 Healthy progression")
+    st.caption("StudyBuddy rewards consistency without forcing endless sessions. Take breaks, pause timers, and use the penalty switch only when it helps your routine.")
+
+    st.markdown("### 🧠 Gemma AI")
+    st.caption("StudyBuddy uses Google's hosted Gemma models through the Gemini API. You can choose a model and connect your key from the sidebar (Gemma AI · Google Cloud).")
+    if has_api_key():
+        st.success("Gemma AI is connected. You're good to go.")
+    else:
+        st.info("Open the sidebar to paste or load your Google AI API key from Streamlit secrets, the GEMINI_API_KEY env var, or a .env file.")
+    st.caption("Current model: " + get_selected_model())
+    st.caption("To override the model for all users on this deployment, set the STUDYBUDDY_MODEL environment variable.")
+
+    st.markdown("### Local storage")
+    st.caption(f"Database: {DB_PATH}")
+    st.caption(f"Important PDFs folder: {PDF_DIR}")
+    st.warning("Your schedule, XP, profile, and saved PDF library are stored locally on this computer. Keep the study_data folder if you move or back up the app.")
+    with st.expander("Reset progress (careful)"):
+        st.warning("This permanently deletes quests and resets your XP and stats. Your saved PDFs are kept.")
+        confirm=st.checkbox("I understand and want to reset my study progress")
+        if st.button("Reset progress", disabled=not confirm):
+            with db() as con:
+                con.execute("DELETE FROM quests")
+                con.execute("UPDATE profile SET xp=0,focus=1,discipline=1,knowledge=1,energy=1,streak=0,last_study=NULL,title='New Awakening' WHERE id=1")
+            st.success("Progress reset."); st.rerun()
+
+st.sidebar.divider()
+st.sidebar.caption("StudyBuddy Level Up · Local-first study tracker")

@@ -1,0 +1,7 @@
+venv/
+study_data/
+__pycache__/
+*.db
+.env
+.env.local
+.secrets.toml
