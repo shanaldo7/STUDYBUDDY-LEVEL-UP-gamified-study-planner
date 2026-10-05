@@ -2716,18 +2716,25 @@ elif page == "👥 Shadow Army":
                     + (soldier["emoji"] if unlocked else "🔒") + "</div>",
                     unsafe_allow_html=True,
                 )
+            description = soldier["description"] if unlocked else (
+                f"Clear {soldier.get('dungeons', 1)} Dungeon battle(s) and reach "
+                f"Level {soldier['level']} to awaken this shadow."
+            )
+            display_name = soldier["name"] if unlocked else "???"
+            display_title = soldier["title"] if unlocked else "Unknown shadow"
+            display_ability = soldier["ability"] if unlocked else "Hidden ability"
             st.markdown(
                 f"<div class='panel' style='min-height:175px;opacity:{opacity}'>"
-                f"<div class='panel-title' style='margin:0'>{soldier['name'] if unlocked else '???'}</div>"
-                f"<div class='muted'>{soldier['title'] if unlocked else 'Unknown shadow'}</div>"
+                f"<div class='panel-title' style='margin:0'>{display_name}</div>"
+                f"<div class='muted'>{display_title}</div>"
                 f"<div style='margin-top:12px;color:#67e8f9;font-weight:700'>{status}</div>"
-                f"<div style='margin-top:7px'><b>{soldier['ability'] if unlocked else 'Hidden ability'}</b></div>"
-                f"<div class='muted' style='margin-top:5px'>{soldier['description'] if unlocked else f'Clear {soldier.get("dungeons",1)} Dungeon battle(s) and reach Level {soldier["level"]} to awaken this shadow.'}</div></div>",
+                f"<div style='margin-top:7px'><b>{display_ability}</b></div>"
+                f"<div class='muted' style='margin-top:5px'>{description}</div></div>",
                 unsafe_allow_html=True,
             )
     st.divider()
     if not available:
-        st.info("Complete quests to awaken your first shadow companion.")
+        st.info("Clear your first Dungeon battle and reach Level 2 to awaken Igris.")
     else:
         reaction_pool = [
             ("Igris", "⚔️ Igris stands ready. One clear objective. No excuses. "),
