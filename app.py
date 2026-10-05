@@ -1290,6 +1290,50 @@ with db() as con:
 ensure_adaptive_tables(db)
 
 RANKS = [(0,"E-RANK"),(150,"D-RANK"),(400,"C-RANK"),(800,"B-RANK"),(1400,"A-RANK"),(2200,"S-RANK"),(3500,"NATIONAL LEVEL")]
+
+INDIAN_CALENDAR_2026 = [
+    ("2026-01-14", "🪔 Makar Sankranti / Pongal", "festival", "India"),
+    ("2026-01-23", "🪷 Basant Panchami / Saraswati Puja", "festival", "India · West Bengal"),
+    ("2026-01-26", "🇮🇳 Republic Day", "holiday", "India"),
+    ("2026-03-04", "🎨 Holi", "holiday", "India"),
+    ("2026-03-21", "🌙 Eid-ul-Fitr", "holiday", "India"),
+    ("2026-03-31", "☸️ Mahavir Jayanti", "holiday", "India"),
+    ("2026-04-03", "✝️ Good Friday", "holiday", "India"),
+    ("2026-05-01", "☸️ Buddha Purnima", "holiday", "India"),
+    ("2026-05-27", "🌙 Eid-ul-Zuha / Bakrid", "holiday", "India"),
+    ("2026-06-26", "🌙 Muharram", "holiday", "India"),
+    ("2026-08-15", "🇮🇳 Independence Day", "holiday", "India"),
+    ("2026-08-26", "🌙 Milad-un-Nabi / Eid-e-Milad", "holiday", "India"),
+    ("2026-09-04", "🪷 Janmashtami", "festival", "India"),
+    ("2026-09-14", "🐘 Ganesh Chaturthi", "festival", "India"),
+    ("2026-10-02", "🕊️ Gandhi Jayanti", "holiday", "India"),
+    ("2026-10-10", "🌺 Mahalaya", "festival", "West Bengal · Kolkata"),
+    ("2026-10-11", "🌸 Sharad Navratri begins", "festival", "India"),
+    ("2026-10-16", "🔱 Durga Puja · Maha Shashthi", "festival", "West Bengal · Kolkata"),
+    ("2026-10-17", "🔱 Durga Puja · Maha Saptami", "festival", "West Bengal · Kolkata"),
+    ("2026-10-18", "🔱 Durga Puja · Maha Saptami", "festival", "West Bengal · Kolkata"),
+    ("2026-10-19", "🔱 Durga Puja · Maha Ashtami", "holiday", "West Bengal · Kolkata"),
+    ("2026-10-20", "🔱 Durga Puja · Maha Navami / Vijayadashami", "holiday", "West Bengal · Kolkata"),
+    ("2026-10-21", "🌊 Durga Visarjan / Bijoya period", "festival", "West Bengal · Kolkata"),
+    ("2026-10-25", "🪷 Kojagari Lakshmi Puja", "festival", "West Bengal · Kolkata"),
+    ("2026-11-08", "🪔 Diwali / Deepavali", "holiday", "India"),
+    ("2026-11-24", "🪯 Guru Nanak Jayanti", "holiday", "India"),
+    ("2026-12-25", "🎄 Christmas Day", "holiday", "India"),
+]
+
+INDIAN_CALENDAR_SOURCES = {
+    "India Post · Holidays 2026": "https://www.indiapost.gov.in/holidays-list",
+    "Kolkata government holiday list": "https://cgca.gov.in/ccako/list-of-holiday",
+    "ISRO/IIRS holiday calendar": "https://www.iirs.gov.in/holidaycalender",
+    "Indian festival calendar": "https://www.drikpanchang.com/calendars/indian/indiancalendar.html",
+}
+
+def indian_calendar_events(year):
+    if year != 2026:
+        return []
+    return [{"date": date.fromisoformat(d), "title": title, "kind": kind, "region": region}
+            for d, title, kind, region in INDIAN_CALENDAR_2026]
+
 def rank_for(xp):
     rank = RANKS[0][1]
     for threshold, name in RANKS:
