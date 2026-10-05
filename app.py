@@ -2174,6 +2174,9 @@ profile = get_profile()
 rank = rank_for(profile["xp"])
 level = level_for(profile["xp"])
 
+# One-shot progression ceremony: appears immediately after the Dungeon victory rerun.
+render_shadow_unlock_ceremony()
+
 # ---------- Dashboard ----------
 if page == "🏠 Hunter Dashboard":
     metrics = get_activity_metrics()
@@ -2666,21 +2669,6 @@ elif page == "✨ Gemma Study Lab":
 elif page == "👥 Shadow Army":
     render_module_hud(page)
     available = unlocked_shadows(profile["xp"])
-    unlock_event = st.session_state.pop("shadow_unlock_event", None)
-    if unlock_event:
-        for unlock in unlock_event:
-            st.markdown(
-                f"""<div class='sb-unlock' data-sb-motion='1'>
-                  <div class='sb-unlock-seal'>{unlock["emoji"]}</div>
-                  <div class='sb-unlock-kicker'>DUNGEON CLEAR · SHADOW EXTRACTION COMPLETE</div>
-                  <div class='sb-unlock-title'>{html.escape(unlock["name"])} AWAKENED</div>
-                  <div class='sb-unlock-sub'>{html.escape(unlock["title"])} · Level {unlock["level"]} · Dungeon milestone {unlock["dungeons"]}</div>
-                </div>""",
-                unsafe_allow_html=True,
-            )
-            if MOTION_JS:
-                components.html("<div data-sb-motion='1'></div><script>"+MOTION_JS+"</script>", height=1, scrolling=False)
-        st.success("⚔️ New shadow added to your Army. Its study ability is now available.")
     st.markdown(
         f"""<div class='hero'>
           <div class='hero-kicker'>Shadow Extraction · Companion System</div>
