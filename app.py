@@ -83,7 +83,7 @@ st.markdown("""
 }
 .block-container {
   max-width: 1400px;
-  padding-top: 1.4rem;
+  padding-top: 4.1rem;
   padding-bottom: 2.5rem;
   padding-left: 1.6rem;
   padding-right: 1.6rem;
@@ -2062,6 +2062,30 @@ with st.sidebar:
     st.markdown(f"<span class='rank'>{rank_for(profile['xp'])}</span>", unsafe_allow_html=True)
     st.caption(f"Level {level_for(profile['xp'])} · {profile['xp']} XP")
     st.progress(xp_progress(profile['xp']) / 100)
+
+# Reset the main viewport when switching tabs so every module opens from its true top.
+_previous_page = st.session_state.get("_previous_page")
+if _previous_page != page:
+    components.html(
+        """
+        <script>
+        (function () {
+          const goTop = () => {
+            try {
+              window.parent.scrollTo({top: 0, left: 0, behavior: "instant"});
+              window.top.scrollTo({top: 0, left: 0, behavior: "instant"});
+            } catch (e) {}
+          };
+          goTop();
+          setTimeout(goTop, 40);
+          setTimeout(goTop, 180);
+        })();
+        </script>
+        """,
+        height=0,
+        scrolling=False,
+    )
+    st.session_state["_previous_page"] = page
 
 profile = get_profile()
 try:
