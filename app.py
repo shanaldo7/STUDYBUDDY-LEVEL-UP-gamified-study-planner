@@ -1240,10 +1240,13 @@ with db() as con:
         completed_at TEXT, penalty_applied INTEGER NOT NULL DEFAULT 0
     )""")
     quest_columns = {row[1] for row in con.execute("PRAGMA table_info(quests)").fetchall()}
+    if "completion_id" not in quest_columns:
+        con.execute("ALTER TABLE quests ADD COLUMN completion_id TEXT")
     if "penalty_applied" not in quest_columns:
         con.execute("ALTER TABLE quests ADD COLUMN penalty_applied INTEGER NOT NULL DEFAULT 0")
         # Existing overdue quests are grandfathered in when this feature is first added.
         con.execute("UPDATE quests SET penalty_applied=1 WHERE due < ? AND completed=0", (date.today().isoformat(),))
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_quest_completion_id ON quests(completion_id)")
     con.execute("""CREATE TABLE IF NOT EXISTS penalty_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT, quest_id INTEGER, amount INTEGER NOT NULL,
         applied_on TEXT NOT NULL, note TEXT NOT NULL
@@ -1284,6 +1287,9 @@ with db() as con:
     _dungeon_columns = {row[1] for row in con.execute("PRAGMA table_info(dungeon_runs)").fetchall()}
     if "boss_rank" not in _dungeon_columns:
         con.execute("ALTER TABLE dungeon_runs ADD COLUMN boss_rank TEXT")
+    if "completion_id" not in _dungeon_columns:
+        con.execute("ALTER TABLE dungeon_runs ADD COLUMN completion_id TEXT")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_dungeon_completion_id ON dungeon_runs(completion_id)")
     con.execute("""CREATE TABLE IF NOT EXISTS achievements (
         id TEXT PRIMARY KEY, unlocked_at TEXT NOT NULL
     )""")
@@ -1458,13 +1464,15 @@ def award_xp(reward, minutes, source="quest", note="Study reward", completion_id
 
 def complete_quest(qid):
     q = None
+    completion_id = None
     with db() as con:
         q = con.execute("SELECT * FROM quests WHERE id=? AND completed=0", (qid,)).fetchone()
         if q:
-            con.execute("UPDATE quests SET completed=1, completed_at=? WHERE id=?", (datetime.now().isoformat(timespec="seconds"), qid))
+            completion_id = q["completion_id"] or make_completion_id("quest_" + str(qid))
+            con.execute("UPDATE quests SET completed=1, completed_at=?, completion_id=? WHERE id=? AND completed=0", (datetime.now().isoformat(timespec="seconds"), completion_id, qid))
     # Award XP only after the quest update transaction has committed.
     if q:
-        award_xp(q["reward"], q["minutes"])
+        award_xp(q["reward"], q["minutes"], completion_id=completion_id)
         grant_currency(db, coins=max(5, q["reward"] // 5))
         return q["reward"]
     return 0
@@ -2096,11 +2104,13 @@ def finish_dungeon():
     perfect_bonus = 20 if perfect else 0
     boss_bonus = DUNGEON_BOSSES.get(run.get("boss_id", "igrit"), DUNGEON_BOSSES["igrit"])["bonus"]
     xp = base + difficulty_bonus + perfect_bonus + boss_bonus
-    award_xp(xp, max(15, total * 5), source="dungeon", note=f"Boss defeated: {run['subject']} ({correct}/{total})")
-    save_dungeon_run(run["subject"], run["difficulty"], total, correct, xp, perfect, DUNGEON_BOSSES.get(run.get("boss_id", "igrit"), DUNGEON_BOSSES["igrit"])["rank"])
+    completion_id = run.get("completion_id") or make_completion_id("dungeon")
+    run["completion_id"] = completion_id
+    awarded = award_xp(xp, max(15, total * 5), source="dungeon", note="Boss defeated", completion_id=completion_id)
+    save_dungeon_run(run["subject"], run["difficulty"], total, correct, awarded or xp, perfect, DUNGEON_BOSSES.get(run.get("boss_id", "igrit"), DUNGEON_BOSSES["igrit"])["rank"], completion_id=completion_id)
     grant_currency(db, coins=25 + correct * 5, gems=1 if perfect else 0)
     run["finished"] = True
-    run["xp_earned"] = xp
+    run["xp_earned"] = awarded or xp
     run["perfect"] = perfect
     st.session_state["dungeon_run"] = run
     after_profile = get_profile()
