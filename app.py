@@ -17,6 +17,7 @@ from pypdf import PdfReader
 
 from anime_rpg import render as render_anime_rpg
 from ai_intelligence import render_ai_intelligence
+from ui_enhancements import inject_enhanced_ui, render_command_header, render_metrics, render_workflow, render_next_action
 from study_engine import (
     ensure_tables as ensure_adaptive_tables,
     render_exam_center,
@@ -51,6 +52,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 MOTION_CSS = (APP_DIR / "assets" / "motion.css").read_text(encoding="utf-8") if (APP_DIR / "assets" / "motion.css").exists() else ""
 MOTION_JS = (APP_DIR / "assets" / "motion.js").read_text(encoding="utf-8") if (APP_DIR / "assets" / "motion.js").exists() else ""
+
+inject_enhanced_ui()
 
 st.set_page_config(page_title="StudyBuddy | Level Up", page_icon="⚔️", layout="wide")
 
@@ -2238,6 +2241,9 @@ render_shadow_unlock_ceremony()
 
 # ---------- Dashboard ----------
 if page == "🏠 Hunter Dashboard":
+    render_workflow(0)
+    render_next_action("⚡", "Adaptive Hunter Route", "Your dashboard now connects planning, training, testing, review and progression.", "SYSTEM FLOW")
+
     metrics = get_activity_metrics()
     with db() as con:
         today_q = con.execute("SELECT COUNT(*) FROM quests WHERE due=? AND completed=0", (date.today().isoformat(),)).fetchone()[0]
