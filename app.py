@@ -2390,7 +2390,10 @@ if page == "🏠 Hunter Dashboard":
             st.session_state["nav_page"] = "⚔️ Dungeon Battles"
             st.rerun()
     with d2:
-        st.markdown(f"<div class='system-next'><span class='muted'>SKILL POINTS</span><b>{max(0, level-1)}</b><div class='muted'>Open Skill Tree</div></div>", unsafe_allow_html=True)
+        with db() as _sp_con:
+        _sp_row = _sp_con.execute("SELECT COALESCE(max_level_seen,1)-COALESCE(skill_points_spent,0) AS available FROM hunter_progress WHERE id=1").fetchone()
+    _available_sp = int(_sp_row["available"] if _sp_row else max(0, level-1))
+    st.markdown(f"<div class='system-next'><span class='muted'>SKILL POINTS</span><b>{max(0,_available_sp)}</b><div class='muted'>Open Skill Tree</div></div>", unsafe_allow_html=True)
 
     st.markdown("### ◈ Weekly XP")
     with db() as con:
@@ -3109,8 +3112,8 @@ elif page == "⚔️ Dungeon Battles":
                 questions, source = generate_quiz_questions(subject.strip(), count, difficulty)
                 st.session_state["dungeon_run"] = {
                     "subject":subject.strip(),"difficulty":difficulty,"questions":questions,
-                    "source":source,"boss_id":selected_id,"index":0,"correct":0,"combo":0,
-                    "shield":3,"answered":False,"last_result":None,"finished":False
+                    "source":source,"boss_id":selected_id,"index":0,"correct":0,"combo":0,"damage":0,
+                    "max_hp":count*100,"shield":3,"answered":False,"last_result":None,"finished":False
                 }
                 st.rerun()
     else:
@@ -3122,7 +3125,7 @@ elif page == "⚔️ Dungeon Battles":
                 f"""<div class='dungeon-result'>
                   <div class='focus-badge'>INSTANCE CLEARED · VICTORY</div>
                   <div class='level-up-title' style='margin-top:8px'>{boss['name']} DEFEATED</div>
-                  <div class='muted'>{run['subject']} · {run['difficulty']} · {run['correct']}/{len(run['questions'])} correct</div>
+                  <div class='muted'>{run['subject']} · {run['difficulty']} · {run['correct']}/{len(run['questions'])} correct · {round(100*run['correct']/max(1,len(run['questions'])))}% accuracy · {run.get('damage',0)} damage</div>
                   <div style='font:800 34px Orbitron;color:#fbbf24;margin-top:12px'>+{run.get('xp_earned',0)} XP</div>
                 </div>""",
                 unsafe_allow_html=True,
@@ -3136,7 +3139,10 @@ elif page == "⚔️ Dungeon Battles":
             total = len(run["questions"])
             qidx = run["index"]
             q = run["questions"][qidx]
-            hp_pct = int(100 * (total-run["correct"]) / max(1,total))
+            max_hp = int(run.get("max_hp", total * 100))
+            damage = int(run.get("damage", run["correct"] * 100))
+            hp_pct = int(100 * max(0, max_hp - damage) / max(1, max_hp))
+            phase = "PHASE III" if hp_pct <= 33 else ("PHASE II" if hp_pct <= 66 else "PHASE I")
             art = load_shadow_image(boss["image"])
 
             left,right = st.columns([1.18,0.82], gap="large")
@@ -3157,8 +3163,8 @@ elif page == "⚔️ Dungeon Battles":
                 st.markdown("<div class='dungeon-hud'>", unsafe_allow_html=True)
                 st.markdown(f"<div class='focus-badge'>{boss['rank']} · {boss['element']} CLASS</div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='dungeon-hud-title'>{boss['name']}</div><div class='dungeon-hud-sub'>{boss['description']}</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='dungeon-hp-label'><span>BOSS VITALITY</span><b>{max(0,total-run['correct'])}/{total}</b></div><div class='dungeon-hp'><div style='width:{max(0,hp_pct)}%'></div></div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='dungeon-stat-grid'><div class='dungeon-stat'><b>x{run['combo']}</b><span>Combo</span></div><div class='dungeon-stat'><b>{run['correct']}/{qidx}</b><span>Hits</span></div><div class='dungeon-stat'><b>{'♥'*run['shield']}</b><span>Shield</span></div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='dungeon-hp-label'><span>BOSS VITALITY · {phase}</span><b>{max(0,max_hp-damage)}/{max_hp}</b></div><div class='dungeon-hp'><div style='width:{max(0,hp_pct)}%'></div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='dungeon-stat-grid'><div class='dungeon-stat'><b>x{run['combo']}</b><span>Combo</span></div><div class='dungeon-stat'><b>{damage}</b><span>Damage</span></div><div class='dungeon-stat'><b>{run['correct']}/{qidx}</b><span>Hits</span></div><div class='dungeon-stat'><b>{'♥'*run['shield']}</b><span>Shield</span></div></div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='muted'>SIGNATURE ATTACK · <b style='color:#e6eefb'>{boss['attack']}</b> · BONUS +{boss['bonus']} XP</div>", unsafe_allow_html=True)
                 if run.get("last_result") is None:
                     st.markdown(f"<div class='dungeon-question'><div class='dungeon-question-label'>TARGET {qidx+1} / {total} · SELECT YOUR STRIKE</div><div class='dungeon-question-text'>{q['q']}</div></div>", unsafe_allow_html=True)
@@ -3175,9 +3181,10 @@ elif page == "⚔️ Dungeon Battles":
                             if correct:
                                 run["correct"] += 1
                                 run["combo"] += 1
+                                run["damage"] = int(run.get("damage", 0) + 100 * combo_multiplier(db, run["combo"]))
                             else:
+                                # A miss breaks the combo, but never removes earned damage, XP, quests, or prior progress.
                                 run["combo"] = 0
-                                run["shield"] = max(0,run["shield"]-1)
                                 # Close the learning loop: every dungeon miss becomes a due-now revision card.
                                 with db() as con:
                                     created = create_revision_from_miss(
