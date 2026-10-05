@@ -451,6 +451,71 @@ div.stButton > button[kind="primary"]:hover,
   background: linear-gradient(135deg, #0e6b7c, #5c3aa5);
 }
 
+
+/* ── Cinematic / Pinterest-inspired Dungeon UI ───────────────── */
+.dungeon-gate {
+  position:relative; overflow:hidden; border-radius:24px;
+  border:1px solid rgba(126,177,235,.22);
+  background:linear-gradient(135deg,rgba(9,14,28,.96),rgba(25,13,42,.94));
+  box-shadow:0 25px 70px rgba(0,0,0,.45);
+  margin:8px 0 18px;
+}
+.dungeon-gate::before {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(circle at 78% 18%,rgba(139,92,246,.18),transparent 36%),
+             radial-gradient(circle at 15% 70%,rgba(34,211,238,.10),transparent 35%);
+}
+.dungeon-gate-content { position:relative; padding:26px; }
+.dungeon-kicker { color:#67e8f9; font:800 .64rem Orbitron,sans-serif; letter-spacing:2px; text-transform:uppercase; }
+.dungeon-gate-title { color:#fff; font:800 clamp(1.7rem,4vw,3rem) Orbitron,sans-serif; margin:7px 0; }
+.dungeon-gate-sub { color:#9fb2cb; max-width:700px; font-size:.9rem; }
+.boss-card {
+  position:relative; overflow:hidden; border-radius:18px; min-height:330px;
+  border:1px solid rgba(255,255,255,.10);
+  background:#080c17; transition:transform .22s,border-color .22s,box-shadow .22s;
+}
+.boss-card:hover { transform:translateY(-5px); border-color:rgba(103,232,249,.45); box-shadow:0 16px 35px rgba(0,0,0,.42); }
+.boss-card img { width:100%; height:250px; object-fit:cover; object-position:center top; display:block; }
+.boss-card::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 48%,rgba(5,8,18,.97) 100%); pointer-events:none; }
+.boss-card-copy { position:absolute; left:16px; right:16px; bottom:15px; z-index:2; }
+.boss-card-name { color:#fff; font:800 1.2rem Orbitron,sans-serif; }
+.boss-card-meta { color:#9fb2cb; font-size:.7rem; margin-top:4px; letter-spacing:1px; text-transform:uppercase; }
+.boss-card-selected { border-color:#67e8f9; box-shadow:0 0 0 1px rgba(103,232,249,.35),0 18px 40px rgba(0,0,0,.45); }
+.dungeon-battle-shell {
+  border:1px solid rgba(126,177,235,.22); border-radius:24px; padding:10px;
+  background:linear-gradient(145deg,rgba(7,11,22,.97),rgba(20,12,36,.94));
+  box-shadow:0 28px 75px rgba(0,0,0,.48);
+}
+.dungeon-art-frame { position:relative; overflow:hidden; min-height:520px; border-radius:18px; background:#050811; }
+.dungeon-art-frame img { width:100%; height:520px; object-fit:cover; object-position:center top; display:block; filter:saturate(1.08) contrast(1.05); }
+.dungeon-art-frame::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(0,0,0,.02) 35%,rgba(4,6,14,.96) 100%); }
+.dungeon-boss-overlay { position:absolute; inset:0; z-index:2; pointer-events:none; }
+.boss-scanline { position:absolute; left:0; right:0; top:30%; height:1px; background:linear-gradient(90deg,transparent,var(--boss-glow),transparent); box-shadow:0 0 14px var(--boss-glow); opacity:.5; animation:bossScan 3.2s ease-in-out infinite; }
+.boss-overlay-top,.boss-overlay-bottom { position:absolute; left:18px; right:18px; display:flex; justify-content:space-between; gap:10px; font:700 .62rem Orbitron,sans-serif; letter-spacing:1.4px; }
+.boss-overlay-top { top:16px; color:#dbeafe; } .boss-overlay-top span:last-child{color:#86efac;}
+.boss-overlay-bottom { bottom:18px; align-items:end; } .boss-overlay-bottom b{font-size:1.6rem;color:#fff;text-shadow:0 0 16px var(--boss-glow);} .boss-overlay-bottom span{color:var(--boss-glow);}
+.dungeon-hud { height:100%; padding:22px; border-radius:18px; border:1px solid rgba(126,177,235,.18); background:linear-gradient(160deg,rgba(18,28,50,.84),rgba(8,13,26,.88)); }
+.dungeon-hud-title { font:800 1.7rem Orbitron,sans-serif; color:#fff; margin:6px 0; }
+.dungeon-hud-sub { color:#91a5c0; font-size:.82rem; }
+.dungeon-hp-label { display:flex; justify-content:space-between; margin-top:20px; color:#9fb2cb; font-size:.72rem; }
+.dungeon-hp { height:12px; margin-top:7px; border-radius:99px; overflow:hidden; background:#171d2b; }
+.dungeon-hp > div { height:100%; background:linear-gradient(90deg,#ef4444,#f97316,#fbbf24); transition:width .55s ease; }
+.dungeon-stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:16px 0; }
+.dungeon-stat { padding:11px 8px; text-align:center; border:1px solid rgba(126,177,235,.14); border-radius:12px; background:rgba(7,13,26,.62); }
+.dungeon-stat b { display:block; color:#fff; font:700 1rem Orbitron,sans-serif; } .dungeon-stat span{color:#7f93ad;font-size:.62rem;text-transform:uppercase;letter-spacing:1px;}
+.dungeon-question { margin-top:17px; padding:18px; border-radius:15px; border:1px solid rgba(94,234,212,.20); background:linear-gradient(145deg,rgba(15,39,58,.55),rgba(28,17,51,.55)); }
+.dungeon-question-label { color:#5eead4; font:700 .64rem Orbitron,sans-serif; letter-spacing:1.5px; }
+.dungeon-question-text { color:#fff; font:700 1.16rem Rajdhani,sans-serif; line-height:1.45; margin-top:7px; }
+.dungeon-result { padding:34px; text-align:center; border:1px solid rgba(251,191,36,.35); border-radius:20px; background:linear-gradient(150deg,rgba(58,43,16,.65),rgba(23,27,45,.65)); }
+@keyframes bossScan { 0%,100%{transform:translateY(-70px);opacity:0;} 35%,65%{opacity:.7;} 50%{transform:translateY(210px);} }
+@media (max-width: 850px) {
+  .dungeon-art-frame,.dungeon-art-frame img{min-height:390px;height:390px;}
+  .boss-card img{height:210px;}
+  .dungeon-gate-content{padding:20px;}
+}
+@media (prefers-reduced-motion: reduce) {
+  .boss-scanline{animation:none;} .boss-card{transition:none;} .boss-card:hover{transform:none;}
+}
 /* ── Forms & inputs ───────────────────────────────────────────── */
 [data-testid="stForm"] {
   padding: 16px 18px;
@@ -1314,36 +1379,64 @@ def ask_ollama(prompt, system_prompt="You are the StudyBuddy System Assistant. B
 
 
 
-# Original boss roster for the quiz-driven dungeon combat.
+# Cinematic Solo Leveling shadow roster for Dungeon Battles.
+# Artwork is loaded from the official Solo Leveling Season 2 shadow-visual page.
 DUNGEON_BOSSES = {
-    "dragon": {"name":"Infernal Dragon", "emoji":"🐉", "element":"FIRE", "color":"#fb583f",
-               "description":"A colossal flame dragon. Correct answers strike its burning core.",
-               "image":"https://commons.wikimedia.org/wiki/Special:FilePath/Fantasy_Afrt_The_Dragon_Revives.png",
-               "attack":"Inferno Breath", "bonus":15},
-    "guardian": {"name":"Shadow Monarch's Guardian", "emoji":"🛡️", "element":"SHADOW", "color":"#a78bfa",
-                 "description":"A dark armored sentinel surrounded by violet mana.",
-                 "image":"https://commons.wikimedia.org/wiki/Special:FilePath/Shadow_Monster_(16789985016).jpg",
-                 "attack":"Void Cleave", "bonus":20},
-    "spider": {"name":"Abyssal Spider", "emoji":"🕷️", "element":"ABYSS", "color":"#4ade80",
-               "description":"A massive cave-dweller that punishes careless strikes.",
-               "image":"https://commons.wikimedia.org/wiki/Special:FilePath/DALL%C2%B7E_2025-02-07_08.34.51_-_A_fantasy_creature_combining_a_spider_and_a_fairy._The_creature_has_a_delicate%2C_translucent_spider_body_with_shimmering%2C_iridescent_wings_like_a_fairy.webp",
-               "attack":"Venom Web", "bonus":12},
-    "titan": {"name":"Frost Titan", "emoji":"❄️", "element":"FROST", "color":"#67e8f9",
-              "description":"An ancient ice giant sealed beneath the dungeon.",
-              "image":"https://commons.wikimedia.org/wiki/Special:FilePath/DnD_Giant.png",
-              "attack":"Glacier Slam", "bonus":18},
+    "igrit": {
+        "name":"Igris", "element":"SHADOW", "color":"#ef4444",
+        "description":"The Blood-Red Commander. Precision and consistency are your weapons.",
+        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/igrit.jpg",
+        "attack":"Blood-Red Cleave", "bonus":20, "rank":"S-RANK"
+    },
+    "beru": {
+        "name":"Beru", "element":"SHADOW", "color":"#a855f7",
+        "description":"The Ant King. A relentless knowledge trial that rewards momentum.",
+        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/beru.jpg",
+        "attack":"Royal Devour", "bonus":25, "rank":"S-RANK"
+    },
+    "tank": {
+        "name":"Tank", "element":"FROST", "color":"#22d3ee",
+        "description":"The Frost Bear. Defensive mastery meets careful recall.",
+        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/tank.jpg",
+        "attack":"Glacial Guard", "bonus":18, "rank":"A-RANK"
+    },
+    "kiba": {
+        "name":"Kiba", "element":"SHADOW", "color":"#f43f5e",
+        "description":"The High Orc Shaman. A tactical trial for deeper subject mastery.",
+        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/kiba.jpg",
+        "attack":"Mana Break", "bonus":22, "rank":"A-RANK"
+    },
+    "kaisel": {
+        "name":"Kaisel", "element":"SHADOW", "color":"#06b6d4",
+        "description":"The Winged Mount. A high-mobility challenge for fast recall.",
+        "image":"https://sololeveling-anime.net/assets/img/special/shadows-visual/kaisel.jpg",
+        "attack":"Sky Rend", "bonus":24, "rank":"S-RANK"
+    },
 }
 
-def boss_visual(boss_id):
-    boss = DUNGEON_BOSSES.get(boss_id, DUNGEON_BOSSES["dragon"])
-    # Self-contained anime-inspired visual; no external image host or API required.
-    return f"""
-    <div class="dungeon-boss-art" style="--boss-glow:{boss['color']}">
-      <div class="boss-aura"></div>
-      <div class="boss-art-emoji">{boss['emoji']}</div>
-      <div class="boss-art-label">{boss['element']} CLASS · DUNGEON BOSS</div>
-    </div>"""
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_shadow_image(url):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent":"StudyBuddy/1.0"})
+        with urllib.request.urlopen(req, timeout=12) as response:
+            raw = response.read()
+        return raw if raw else None
+    except Exception:
+        return None
 
+def boss_visual(boss_id):
+    boss = DUNGEON_BOSSES.get(boss_id, DUNGEON_BOSSES["igrit"])
+    return f"""
+    <div class="dungeon-boss-overlay" style="--boss-glow:{boss['color']}">
+      <div class="boss-scanline"></div>
+      <div class="boss-overlay-top">
+        <span>{boss['rank']} · {boss['element']} CLASS</span>
+        <span>● LIVE INSTANCE</span>
+      </div>
+      <div class="boss-overlay-bottom">
+        <b>{boss['name'].upper()}</b><span>DUNGEON BOSS</span>
+      </div>
+    </div>"""
 
 # ---------- RPG systems ----------
 ACHIEVEMENTS = [
@@ -1574,7 +1667,7 @@ def finish_dungeon():
     base = 10 + correct * 10
     difficulty_bonus = {"Easy":0,"Normal":5,"Hard":12,"Nightmare":20}.get(run["difficulty"], 0)
     perfect_bonus = 20 if perfect else 0
-    boss_bonus = DUNGEON_BOSSES.get(run.get("boss_id", "dragon"), DUNGEON_BOSSES["dragon"])["bonus"]
+    boss_bonus = DUNGEON_BOSSES.get(run.get("boss_id", "igrit"), DUNGEON_BOSSES["igrit"])["bonus"]
     xp = base + difficulty_bonus + perfect_bonus + boss_bonus
     award_xp(xp, max(15, total * 5), source="dungeon", note=f"Boss defeated: {run['subject']} ({correct}/{total})")
     save_dungeon_run(run["subject"], run["difficulty"], total, correct, xp, perfect)
@@ -2407,106 +2500,151 @@ elif page == "📅 Quest Schedule":
 # ---------- Dungeon Battles ----------
 elif page == "⚔️ Dungeon Battles":
     st.markdown(
-        """<div class='hero'>
-          <div class='hero-kicker'>Instance Gate · Adaptive Knowledge Trial</div>
-          <div class='hero-title'>Dungeon Battles</div>
-          <p class='hero-sub'>Enter a subject dungeon, defeat the knowledge boss, and earn XP from correct answers.</p>
+        """<div class='dungeon-gate'>
+          <div class='dungeon-gate-content'>
+            <div class='dungeon-kicker'>INSTANCE GATE · SHADOW ARMY</div>
+            <div class='dungeon-gate-title'>Dungeon Battles</div>
+            <div class='dungeon-gate-sub'>A cinematic study battle interface. Pick a shadow, enter the instance, answer targets, and watch your knowledge damage the boss.</div>
+            <div class='hero-meta'><span class='system-chip'>INTERACTIVE COMBAT</span><span class='system-chip purple'>OFFICIAL SHADOW VISUALS</span><span class='system-chip'>GEMMA QUIZ ENGINE</span></div>
+          </div>
         </div>""",
         unsafe_allow_html=True,
     )
+
     run = st.session_state.get("dungeon_run")
     if not run:
+        st.markdown("<div class='panel'><div class='panel-title'>◈ SELECT YOUR SHADOW</div><div class='muted'>Choose a boss below. The selected artwork becomes the battle hero when you enter the dungeon.</div></div>", unsafe_allow_html=True)
+        if "dungeon_boss_choice" not in st.session_state:
+            st.session_state["dungeon_boss_choice"] = "igrit"
+
+        boss_cols = st.columns(len(DUNGEON_BOSSES))
+        for col,(boss_id,boss) in zip(boss_cols,DUNGEON_BOSSES.items()):
+            with col:
+                selected = st.session_state["dungeon_boss_choice"] == boss_id
+                art = load_shadow_image(boss["image"])
+                if art:
+                    st.markdown(
+                        f"<div class='boss-card {'boss-card-selected' if selected else ''}'>"
+                        f"<img src='data:image/jpeg;base64,{__import__('base64').b64encode(art).decode('ascii')}' alt='{boss['name']} artwork'>"
+                        f"<div class='boss-card-copy'><div class='boss-card-name'>{boss['name']}</div><div class='boss-card-meta'>{boss['rank']} · {boss['element']} · +{boss['bonus']} XP</div></div></div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(f"<div class='boss-card'><div style='height:250px;display:flex;align-items:center;justify-content:center;color:#9fb2cb'>{boss['name']}</div><div class='boss-card-copy'><div class='boss-card-name'>{boss['name']}</div></div></div>", unsafe_allow_html=True)
+                if st.button("SELECTED" if selected else "SELECT", key=f"pick_boss_{boss_id}", use_container_width=True, type="primary" if selected else "secondary"):
+                    st.session_state["dungeon_boss_choice"] = boss_id
+                    st.rerun()
+
+        st.markdown("<div class='system-panel' style='margin-top:16px'><b>Battle loop</b><div class='muted' style='margin-top:6px'>Answer correctly → deal damage → build combo → break the boss → claim XP. Wrong answers reset combo and consume one shield, but never remove XP.</div></div>", unsafe_allow_html=True)
+
         with st.form("dungeon_launch"):
             a,b,c = st.columns(3)
-            subject = a.text_input("Dungeon subject", placeholder="e.g. Python, DBMS, Maths")
+            subject = a.text_input("Study subject", placeholder="e.g. Python, DBMS, Maths")
             difficulty = b.selectbox("Threat level", ["Easy","Normal","Hard","Nightmare"], index=1)
-            count = c.selectbox("Questions", [5,7,10], index=0)
-            boss_label = st.selectbox("Choose your boss", [b["name"] for b in DUNGEON_BOSSES.values()], key="dungeon_boss_choice")
-            boss_id = next((key for key, value in DUNGEON_BOSSES.items() if value["name"] == boss_label), "dragon")
-            launch = st.form_submit_button("⚔️ Open Dungeon Gate", type="primary", use_container_width=True)
-        st.markdown("<div class='system-panel'><b>How the battle works</b><div class='muted' style='margin-top:7px'>Correct answers damage the boss and build your combo. Mistakes cost a shield charge, but never deduct XP. Finish the run to claim your reward.</div></div>", unsafe_allow_html=True)
+            count = c.selectbox("Targets", [5,7,10], index=0)
+            launch = st.form_submit_button("⚔️ ENTER THE INSTANCE", type="primary", use_container_width=True)
+
         with db() as con:
             recent = con.execute("SELECT subject,difficulty,correct,questions,xp_earned,played_at FROM dungeon_runs ORDER BY id DESC LIMIT 5").fetchall()
         if recent:
-            st.subheader("Recent runs")
+            st.markdown("### Recent clears")
             for r in recent:
                 pct = int(100*r['correct']/max(1,r['questions']))
-                st.markdown(f"<div class='quest'><b>{r['subject']}</b><div class='muted'>{r['difficulty']} · {r['correct']}/{r['questions']} correct ({pct}%) · +{r['xp_earned']} XP · {r['played_at'][:10]}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='quest'><b>{r['subject']}</b><div class='muted'>{r['difficulty']} · {r['correct']}/{r['questions']} correct · {pct}% mastery · +{r['xp_earned']} XP · {r['played_at'][:10]}</div></div>", unsafe_allow_html=True)
+
         if launch:
             if not subject.strip():
                 st.warning("Enter a subject first.")
             else:
+                boss_id = st.session_state.get("dungeon_boss_choice","igrit")
                 questions, source = generate_quiz_questions(subject.strip(), count, difficulty)
-                st.session_state["dungeon_run"] = {"subject":subject.strip(),"difficulty":difficulty,"questions":questions,"source":source,"boss_id":boss_id,"index":0,"correct":0,"combo":0,"shield":3,"answered":False,"last_result":None,"finished":False}
+                st.session_state["dungeon_run"] = {
+                    "subject":subject.strip(),"difficulty":difficulty,"questions":questions,
+                    "source":source,"boss_id":boss_id,"index":0,"correct":0,"combo":0,
+                    "shield":3,"answered":False,"last_result":None,"finished":False
+                }
                 st.rerun()
     else:
+        boss_id = run.get("boss_id","igrit")
+        boss = DUNGEON_BOSSES.get(boss_id,DUNGEON_BOSSES["igrit"])
         if run.get("finished"):
-            cleared_boss = DUNGEON_BOSSES.get(run.get("boss_id", "dragon"), DUNGEON_BOSSES["dragon"])
-            st.markdown("<div class='dungeon-result'><div class='focus-badge'>INSTANCE CLEARED</div><div class='level-up-title'>Boss Defeated</div><div class='muted'>You defeated the " + cleared_boss["name"] + " in " + run["subject"] + " dungeon.</div><div style='font-size:30px;margin-top:8px'>+" + str(run.get("xp_earned",0)) + " XP</div><div class='muted'>" + str(run["correct"]) + "/" + str(len(run["questions"])) + " answers correct</div></div>", unsafe_allow_html=True)
+            st.markdown(
+                f"""<div class='dungeon-result'>
+                  <div class='focus-badge'>INSTANCE CLEARED · VICTORY</div>
+                  <div class='level-up-title' style='margin-top:8px'>{boss['name']} DEFEATED</div>
+                  <div class='muted'>{run['subject']} · {run['difficulty']} · {run['correct']}/{len(run['questions'])} correct</div>
+                  <div style='font:800 34px Orbitron;color:#fbbf24;margin-top:12px'>+{run.get('xp_earned',0)} XP</div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
             if run.get("perfect"):
-                st.success("Perfect clear! Achievement progress has been updated.")
-            if st.button("Return to Dungeon Hub", type="primary"):
+                st.success("✦ PERFECT CLEAR · Achievement progress updated.")
+            if st.button("↩ Return to Dungeon Hub", type="primary", use_container_width=True):
                 st.session_state.pop("dungeon_run", None)
                 st.rerun()
         else:
             total = len(run["questions"])
             idx = run["index"]
             q = run["questions"][idx]
-            hp_pct = int(100 * (total- run["correct"]) / max(1,total))
-            boss_id = run.get("boss_id", "dragon")
-            boss = DUNGEON_BOSSES.get(boss_id, DUNGEON_BOSSES["dragon"])
-            # Display the actual boss artwork above the battle HUD.
-            st.image(boss["image"], use_container_width=True, caption=boss["name"])
-            st.markdown(
-                f"<div class='dungeon-boss'>{boss_visual(boss_id)}"
-                f"<div class='boss-name'>{boss['name']}</div>"
-                f"<div class='muted'>{boss['description']}</div>"
-                f"<div class='muted' style='margin-top:10px'>THREAT · {run['difficulty']} · QUESTION {idx+1}/{total}</div>"
-                f"<div class='hp-track'><div class='hp-fill' style='width:{max(0,hp_pct)}%'></div></div>"
-                f"<div class='muted'>Boss HP · {max(0,total-run['correct'])}/{total} · Attack: {boss['attack']}</div></div>",
-                unsafe_allow_html=True
-            )
-            k1,k2,k3 = st.columns(3)
-            k1.metric("Combo", f"x{run['combo']}")
-            k2.metric("Correct", f"{run['correct']}/{idx}")
-            k3.metric("Shield", "♥"*run['shield'] + "♡"*(3-run['shield']))
-            if run.get("last_result") is None:
-                st.markdown(f"<div class='system-panel'><div class='focus-badge'>TARGET #{idx+1}</div><div style='font:700 23px Rajdhani,sans-serif;color:white;margin-top:7px'>{q['q']}</div></div>", unsafe_allow_html=True)
-                with st.form(f"dungeon_question_{idx}"):
-                    choice = st.radio("Choose your strike", q["options"], index=None)
-                    strike = st.form_submit_button("⚡ STRIKE", type="primary", use_container_width=True)
-                if strike:
-                    if choice is None:
-                        st.warning("Choose an answer first.")
+            hp_pct = int(100 * (total-run["correct"]) / max(1,total))
+            art = load_shadow_image(boss["image"])
+
+            if art:
+                import base64
+                art_b64 = base64.b64encode(art).decode("ascii")
+                left,right = st.columns([1.18,0.82], gap="large")
+                with left:
+                    st.markdown(
+                        f"""<div class='dungeon-battle-shell'><div class='dungeon-art-frame'>
+                          <img src='data:image/jpeg;base64,{art_b64}' alt='{boss['name']} boss artwork'>
+                          {boss_visual(boss_id)}
+                        </div></div>""",
+                        unsafe_allow_html=True,
+                    )
+                with right:
+                    st.markdown("<div class='dungeon-hud'>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='focus-badge'>{boss['rank']} · {boss['element']} CLASS</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='dungeon-hud-title'>{boss['name']}</div><div class='dungeon-hud-sub'>{boss['description']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='dungeon-hp-label'><span>BOSS VITALITY</span><b>{max(0,total-run['correct'])}/{total}</b></div><div class='dungeon-hp'><div style='width:{max(0,hp_pct)}%'></div></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='dungeon-stat-grid'><div class='dungeon-stat'><b>x{run['combo']}</b><span>Combo</span></div><div class='dungeon-stat'><b>{run['correct']}/{idx}</b><span>Hits</span></div><div class='dungeon-stat'><b>{'♥'*run['shield']}</b><span>Shield</span></div></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='muted'>SIGNATURE ATTACK · <b style='color:#e6eefb'>{boss['attack']}</b> · BONUS +{boss['bonus']} XP</div>", unsafe_allow_html=True)
+                    if run.get("last_result") is None:
+                        st.markdown(f"<div class='dungeon-question'><div class='dungeon-question-label'>TARGET {idx+1} / {total} · SELECT YOUR STRIKE</div><div class='dungeon-question-text'>{q['q']}</div></div>", unsafe_allow_html=True)
+                        with st.form(f"dungeon_question_{idx}"):
+                            choice = st.radio("Choose your answer", q["options"], index=None)
+                            strike = st.form_submit_button("⚡ STRIKE BOSS", type="primary", use_container_width=True)
+                        if strike:
+                            if choice is None:
+                                st.warning("Choose an answer first.")
+                            else:
+                                selected = q["options"].index(choice)
+                                correct = selected == q["answer"]
+                                run["last_result"] = {"correct":correct,"answer":q["options"][q["answer"]],"explain":q.get("explain","")}
+                                if correct:
+                                    run["correct"] += 1
+                                    run["combo"] += 1
+                                else:
+                                    run["combo"] = 0
+                                    run["shield"] = max(0,run["shield"]-1)
+                                st.session_state["dungeon_run"] = run
+                                st.rerun()
                     else:
-                        selected = q["options"].index(choice)
-                        correct = selected == q["answer"]
-                        run["last_result"] = {"correct":correct,"answer":q["options"][q["answer"]],"explain":q.get("explain","")}
-                        if correct:
-                            run["correct"] += 1
-                            run["combo"] += 1
+                        result = run["last_result"]
+                        if result["correct"]:
+                            st.success(f"⚡ CRITICAL HIT · {boss['name']} staggered! Combo x{run['combo']}")
                         else:
-                            run["combo"] = 0
-                            run["shield"] = max(0, run["shield"]-1)
-                        st.session_state["dungeon_run"] = run
-                        st.rerun()
-            else:
-                result = run["last_result"]
-                if result["correct"]:
-                    st.success(f"CRITICAL HIT · Correct! Boss shield broken. Combo x{run['combo']}")
-                else:
-                    st.error(f"BLOCKED · Correct answer: {result['answer']}")
-                st.markdown(f"<div class='system-panel'><b>Battle analysis</b><div class='muted' style='margin-top:6px'>{result['explain']}</div></div>", unsafe_allow_html=True)
-                if idx + 1 < total:
-                    if st.button("Next target →", type="primary", use_container_width=True):
-                        run["index"] += 1
-                        run["last_result"] = None
-                        st.session_state["dungeon_run"] = run
-                        st.rerun()
-                else:
-                    if st.button("Claim dungeon rewards", type="primary", use_container_width=True):
-                        finish_dungeon()
-                        st.rerun()
+                            st.error(f"🛡 BLOCKED · Correct answer: {result['answer']}")
+                        st.markdown(f"<div class='system-panel'><div class='panel-title'>Battle analysis</div><div class='muted'>{result['explain']}</div></div>", unsafe_allow_html=True)
+                        if idx + 1 < total:
+                            if st.button("NEXT TARGET →", type="primary", use_container_width=True):
+                                run["index"] += 1
+                                run["last_result"] = None
+                                st.session_state["dungeon_run"] = run
+                                st.rerun()
+                        else:
+                            if st.button("🏆 CLAIM VICTORY REWARDS", type="primary", use_container_width=True):
+                                finish_dungeon()
+                                st.rerun()
 
 # ---------- Focus Room ----------
 elif page == "⏱️ Focus Room":
