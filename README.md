@@ -8,7 +8,7 @@ Instead of simply asking students to complete tasks, StudyBuddy turns studying i
 
 **Quests → XP → Levels → Ranks → Achievements → New Abilities**
 
-The application combines study planning, AI assistance, revision, focus sessions, quizzes, progress tracking, and an anime-inspired hunter interface in one local-first application.
+The application combines study planning, AI assistance, revision, focus sessions, quizzes, progress tracking, and an original hunter-dungeon interface in one local-first application.
 
 ---
 
@@ -135,25 +135,25 @@ Shadow characters are unlocked as the player's level increases.
 
 Current companions include:
 
-- ⚔️ **Igris** — Discipline Protocol
-- 🐻 **Tank** — Memory Guard
-- 🛡️ **Iron** — Focus Shield
-- 🔮 **Tusk** — Knowledge Spell
-- 👑 **Beru** — Royal Tutor
+- ⚔️ **Crimson Warden** — Discipline Protocol
+- 🐻 **Frostmaw** — Memory Guard
+- 🛡️ **Ironclad** — Focus Shield
+- 🔮 **Arcane Brute** — Knowledge Spell
+- 👑 **Royal Mantis** — Royal Tutor
 
 Each companion has its own personality and learning role.
 
 For example:
 
-**Igris** focuses on discipline and breaking large goals into manageable missions.
+**Crimson Warden** focuses on discipline and breaking large goals into manageable missions.
 
-**Tank** focuses on memory techniques and recall.
+**Frostmaw** focuses on memory techniques and recall.
 
-**Iron** helps overcome distractions and procrastination.
+**Ironclad** helps overcome distractions and procrastination.
 
-**Tusk** creates practice questions and explains difficult concepts.
+**Arcane Brute** creates practice questions and explains difficult concepts.
 
-**Beru** acts as an enthusiastic personal tutor.
+**Royal Mantis** acts as an enthusiastic personal tutor.
 
 ---
 
@@ -177,9 +177,9 @@ Completing a dungeon can award additional XP, with bonuses for difficulty and pe
 Available dungeon themes include:
 
 - 🐉 Infernal Dragon
-- 🛡️ Shadow Monarch's Guardian
-- 🕷️ Abyssal Spider
-- ❄️ Frost Titan
+- 🛡️ Night Sentinel
+- 🕷️ Void Weaver
+- ❄️ Glacial Colossus
 
 ---
 
