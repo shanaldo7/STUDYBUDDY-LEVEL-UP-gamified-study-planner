@@ -18,6 +18,7 @@ from pypdf import PdfReader
 from anime_rpg import render as render_anime_rpg
 from ai_intelligence import render_ai_intelligence
 from ui_enhancements import inject_enhanced_ui, render_command_header, render_metrics, render_workflow, render_next_action
+from hunter_system import ensure_tables as ensure_hunter_tables, render_skill_tree, render_offline_indicator, render_offline_journal, focus_multiplier, combo_multiplier, xp_multiplier
 from study_engine import (
     ensure_tables as ensure_adaptive_tables,
     render_exam_center,
@@ -1288,6 +1289,7 @@ with db() as con:
 
 # Additive adaptive-learning tables: exams, syllabus topics and mastery events.
 ensure_adaptive_tables(db)
+ensure_hunter_tables(db)
 
 RANKS = [(0,"E-RANK"),(150,"D-RANK"),(400,"C-RANK"),(800,"B-RANK"),(1400,"A-RANK"),(2200,"S-RANK"),(3500,"NATIONAL LEVEL")]
 
@@ -2106,6 +2108,7 @@ pages = [
     "🏆 Achievements",
     "📊 Hunter Report",
     "🎯 Study Intelligence",
+    "🌳 Skill Tree",
     "🎓 Exam Command Center",
     "🤖 AI System Assistant",
     "👥 Shadow Army" if shadow_access else "🔒 Shadow Army",
