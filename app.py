@@ -3430,6 +3430,48 @@ elif page == "📚 Important PDFs":
                         con.execute("INSERT OR IGNORE INTO pdfs(title,subject,filename,stored_path,file_hash,added_at) VALUES(?,?,?,?,?,?)", (title.strip() or Path(uploaded.name).stem,subject.strip(),uploaded.name,str(dest),digest,datetime.now().isoformat(timespec="seconds")))
                     st.success(f"Saved. {page_count} pages detected."); st.rerun()
                 except Exception as err: st.error(f"Could not save this PDF: {err}")
+    st.subheader("🛠️ PDF Converter")
+    st.caption("Convert a text-based PDF into an editable DOCX file. Original PDFs stay untouched.")
+    convert_file = st.file_uploader("Choose a PDF to convert", type=["pdf"], key="pdf_converter_upload")
+    convert_name = st.text_input("Output filename", value="study_notes.docx", key="pdf_converter_name")
+    if convert_file is not None and st.button("🔄 Convert PDF → DOCX", type="primary", key="pdf_to_docx"):
+        try:
+            from docx import Document
+            from docx.shared import Pt
+            from io import BytesIO
+            reader = PdfReader(convert_file)
+            doc = Document()
+            normal = doc.styles["Normal"]
+            normal.font.name = "Aptos"
+            normal.font.size = Pt(10.5)
+            doc.add_heading(Path(convert_file.name).stem, level=1)
+            extracted = 0
+            for page_no, pdf_page in enumerate(reader.pages, start=1):
+                page_text = (pdf_page.extract_text() or "").strip()
+                if page_no > 1:
+                    doc.add_page_break()
+                doc.add_heading(f"Page {page_no}", level=2)
+                if page_text:
+                    for paragraph in page_text.split("\n\n"):
+                        if paragraph.strip():
+                            doc.add_paragraph(paragraph.strip())
+                            extracted += len(paragraph.strip())
+                else:
+                    doc.add_paragraph("[No extractable text on this page]")
+            output = BytesIO()
+            doc.save(output)
+            output.seek(0)
+            out_name = Path(convert_name.strip() or "study_notes.docx").name
+            if not out_name.lower().endswith(".docx"):
+                out_name += ".docx"
+            st.success(f"Converted {len(reader.pages)} pages. Extracted approximately {extracted:,} characters.")
+            st.download_button("⬇️ Download converted DOCX", data=output.getvalue(), file_name=out_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="pdf_docx_download")
+        except ImportError:
+            st.error("DOCX support is not installed. Run: pip install python-docx")
+        except Exception as err:
+            st.error(f"Conversion failed: {err}")
+
+    st.divider()
     st.subheader("Saved documents")
     search=st.text_input("Search library", placeholder="Search by title or subject")
     with db() as con:
