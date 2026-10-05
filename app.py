@@ -16,6 +16,7 @@ import streamlit as st
 from pypdf import PdfReader
 
 from anime_rpg import render as render_anime_rpg
+from ai_intelligence import render_ai_intelligence
 from study_engine import (
     ensure_tables as ensure_adaptive_tables,
     render_exam_center,
@@ -2363,111 +2364,7 @@ if page == "🏠 Hunter Dashboard":
 # ---------- Study Intelligence ----------
 elif page == "🎯 Study Intelligence":
     render_module_hud(page)
-    today = date.today()
-    with db() as con:
-        today_q = con.execute("SELECT COUNT(*) AS n, COALESCE(SUM(completed),0) AS done, COALESCE(SUM(reward),0) AS xp FROM quests WHERE due=?", (today.isoformat(),)).fetchone()
-        week_focus = con.execute("SELECT COALESCE(SUM(minutes),0) FROM focus_sessions WHERE completed=1 AND substr(started_at,1,10)>=?", (current_week_start().isoformat(),)).fetchone()[0]
-        week_xp = con.execute("SELECT COALESCE(SUM(amount),0) FROM xp_log WHERE substr(happened_at,1,10)>=?", (current_week_start().isoformat(),)).fetchone()[0]
-        due_cards = con.execute("SELECT COUNT(*) FROM revision_cards WHERE due<=?", (today.isoformat(),)).fetchone()[0]
-        total_cards = con.execute("SELECT COUNT(*) FROM revision_cards").fetchone()[0]
-        subjects = con.execute("SELECT COALESCE(subject,'General') AS subject, COUNT(*) AS total, COALESCE(SUM(completed),0) AS done FROM quests GROUP BY COALESCE(subject,'General') ORDER BY total DESC LIMIT 8").fetchall()
-
-    total_q = int(today_q["n"] or 0)
-    done_q = int(today_q["done"] or 0)
-    completion = int(100 * done_q / max(1,total_q))
-    focus_week = int(week_focus or 0)
-    xp_week = int(week_xp or 0)
-    retention = int(100 * max(0,total_cards-due_cards) / max(1,total_cards))
-
-    st.markdown(
-        """<div class='intel-hero'>
-          <div class='intel-kicker'>Adaptive Learning Engine · Personal Command Center</div>
-          <div class='intel-title'>Study Intelligence</div>
-          <div class='intel-sub'>A decision layer above your existing quests, focus sessions, revision cards and XP. It tells you what to do next instead of only showing what you already did.</div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        f"""<div class='intel-grid'>
-          <div class='intel-card'><div class='intel-card-label'>TODAY COMPLETION</div><div class='intel-card-value'>{completion}%</div><div class='intel-card-note'>{done_q}/{total_q or 0} missions cleared</div></div>
-          <div class='intel-card'><div class='intel-card-label'>WEEKLY FOCUS</div><div class='intel-card-value'>{focus_week}m</div><div class='intel-card-note'>completed focus time</div></div>
-          <div class='intel-card'><div class='intel-card-label'>WEEKLY XP</div><div class='intel-card-value'>+{xp_week}</div><div class='intel-card-note'>earned this week</div></div>
-          <div class='intel-card'><div class='intel-card-label'>MEMORY HEALTH</div><div class='intel-card-value'>{retention}%</div><div class='intel-card-note'>{due_cards} cards need review</div></div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
-
-    left,right = st.columns([1.3,.7], gap="large")
-    with left:
-        st.markdown("<div class='intel-panel'><div class='intel-panel-title'>◈ Weakness Radar</div><div class='muted'>Subjects with incomplete missions are prioritized first. Use this as a training queue, not a grade.</div>", unsafe_allow_html=True)
-        if subjects:
-            for r in subjects:
-                total=int(r["total"] or 0); done=int(r["done"] or 0)
-                score=int(100*done/max(1,total))
-                st.markdown(f"<div class='intel-topic'><div class='intel-topic-name'>{r['subject']}</div><div class='intel-topic-track'><div class='intel-topic-fill' style='width:{score}%'></div></div><div class='intel-topic-score'>{score}%</div></div>", unsafe_allow_html=True)
-        else:
-            st.info("Add quests with subjects to activate the weakness radar.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with right:
-        st.markdown("<div class='intel-panel'><div class='intel-panel-title'>◉ Streak Protocol</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='intel-streak'>{profile['streak']} <span>DAY STREAK</span></div>", unsafe_allow_html=True)
-        if profile["streak"] >= 7:
-            msg="Elite consistency detected. Protect the streak with a short session even on busy days."
-        elif profile["streak"] >= 3:
-            msg="Momentum is building. A 25-minute focus session today keeps the chain alive."
-        else:
-            msg="Recovery mode: start small. One completed mission is enough to rebuild momentum."
-        st.markdown(f"<div class='intel-callout'>{msg}</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("### ◈ Adaptive Mission Plan")
-    plan=[]
-    if due_cards:
-        plan.append(("10 MIN","REVISION","Clear due flashcards before new content.","+review"))
-    if total_q-done_q>0:
-        plan.append(("25 MIN","QUEST","Clear the highest-priority unfinished mission.","+quest XP"))
-    if focus_week < 150:
-        plan.append(("25 MIN","FOCUS","Run one distraction-free Focus Room session.","+focus XP"))
-    if not plan:
-        plan=[("20 MIN","MASTERy","Create or review cards for your weakest subject.","+knowledge"),("25 MIN","FOCUS","Protect today's consistency streak.","+focus XP")]
-    plan=plan[:4]
-    items="".join(f"<div class='intel-plan-item'><div class='intel-plan-time'>{t}</div><div><div class='intel-plan-main'>{m}</div><div class='intel-plan-sub'>{s}</div></div><div class='intel-plan-xp'>{x}</div></div>" for t,m,s,x in plan)
-    st.markdown(f"<div class='intel-panel'><div class='intel-plan'>{items}</div></div>",unsafe_allow_html=True)
-
-    st.markdown("### ◈ AI Coach")
-    coach_prompt = f"""You are StudyBuddy's adaptive study coach. Give a concise actionable coaching brief for this student.
-Today: {today.isoformat()}
-Today quests: {done_q}/{total_q} completed.
-Weekly focus: {focus_week} minutes.
-Weekly XP: {xp_week}.
-Due revision cards: {due_cards}.
-Current streak: {profile['streak']} days.
-Weak subjects by quest completion: {', '.join(f"{r['subject']} {int(100*(r['done'] or 0)/max(1,r['total'] or 1))}%" for r in subjects) or 'no subject data'}.
-Return 3 bullets: (1) priority, (2) mistake/risk to avoid, (3) exact next action. No generic motivation."""
-    if st.button("✨ Generate my 30-second coaching brief", type="primary"):
-        if not has_api_key():
-            st.warning("Connect Gemma AI in the sidebar first.")
-        else:
-            with st.spinner("Gemma is analyzing your study telemetry..."):
-                try:
-                    advice=ask_ollama(coach_prompt,"You are an evidence-based study coach. Be concise, specific and practical.")
-                    st.markdown(f"<div class='intel-callout' style='white-space:pre-wrap'>{advice}</div>",unsafe_allow_html=True)
-                except RuntimeError as exc:
-                    st.error(str(exc))
-
-    st.markdown("### ◈ Recovery / Power Controls")
-    c1,c2,c3=st.columns(3)
-    with c1:
-        if st.button("⚡ 15-min Recovery",use_container_width=True):
-            st.session_state["nav_page"]="⏱️ Focus Room"; st.rerun()
-    with c2:
-        if st.button("🧠 Review Due Cards",use_container_width=True):
-            st.session_state["nav_page"]="🧠 Revision Lab"; st.rerun()
-    with c3:
-        if st.button("⚔️ Test in Dungeon",use_container_width=True):
-            st.session_state["nav_page"]="⚔️ Dungeon Battles"; st.rerun()
+    render_ai_intelligence(st, db, profile, ask_ollama, has_api_key, get_selected_model())
 
 
 elif page == "🎓 Exam Command Center":
